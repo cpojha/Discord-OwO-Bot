@@ -15,17 +15,18 @@ class StreamSocket {
 				token: process.env.STREAM_TOKEN,
 			},
 		});
-		this.socket.on('error', (error) => {
+		this.socket.on('error', (_error) => {
 			console.error('StreamSocket error');
 		});
-		this.socket.on('disconnect', (reason) => {
+		this.socket.on('disconnect', (_reason) => {
 			console.error('StreamSocket disconnect');
 		});
 		this.socket.on('connect', () => {
 			console.log('StreamSocket connected');
 		});
-		this.socket.on('connect_error', (error) => {
-			console.error('StreamSocket connect_error');
+		this.socket.on('connect_error', (_error) => {
+			// silence for now
+			//console.error('StreamSocket connect_error');
 		});
 	}
 
@@ -35,6 +36,7 @@ class StreamSocket {
 			user: {
 				id: author.id,
 				username: author.username,
+				globalname: author.globalname,
 				discriminator: author.discriminator,
 			},
 		});

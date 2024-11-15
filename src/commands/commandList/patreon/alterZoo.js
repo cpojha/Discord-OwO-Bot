@@ -4,8 +4,8 @@
  * This software is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
  * For more information, see README.md and LICENSE
  */
+const alterUtils = require('../../../utils/alterUtils.js');
 
-const blank = '<:blank:427371936482328596>';
 const ranks = {
 	c: '<:common:416520037713838081>',
 	u: '<:uncommon:416520056269176842>',
@@ -22,7 +22,10 @@ const ranks = {
 	b: '<a:botrank:716545289497870407>',
 };
 
-exports.alter = function (id, text, opt) {
+exports.alter = async function (p, id, text, info) {
+	const result = await checkDb(p, info);
+	if (result) return result;
+	if (info.paged) return text;
 	switch (id) {
 		case '250383887312748545':
 			return elsa(text);
@@ -39,13 +42,50 @@ exports.alter = function (id, text, opt) {
 		case '714215538821431398':
 			return ivy(text);
 		case '427296171883626496':
-			return lIlIIIll(text, opt);
+			return lIlIIIll(text, info);
 		case '460987842961866762':
-			return estee(text, opt);
+			return estee(text, info);
 		default:
 			return text;
 	}
 };
+
+async function checkDb(p, info) {
+	const type = info.paged ? 'paged' : 'message';
+	const replacers = {
+		username: p.getName(info.user),
+		discriminator: info.user.discriminator,
+		blank: p.config.emoji.blank,
+		currentPage: info.currentPage,
+		maxPages: info.maxPages,
+		animals: info.animals,
+		zooPoints: info.zooPoints,
+		countText: info.countText,
+		hiddenCount: info.animalCount.hidden,
+		fabledCount: info.animalCount.fabled,
+		cpatreonCount: info.animalCount.cpatreon,
+		distortedCount: info.animalCount.distorted,
+		botCount: info.animalCount.bot,
+		gemCount: info.animalCount.gem,
+		legendaryCount: info.animalCount.legendary,
+		patreonCount: info.animalCount.patreon,
+		mythicalCount: info.animalCount.mythical,
+		specialCount: info.animalCount.special,
+		epicCount: info.animalCount.epic,
+		rareCount: info.animalCount.rare,
+		uncommonCount: info.animalCount.uncommon,
+		commonCount: info.animalCount.common,
+	};
+
+	const extraReplacers = {};
+	Object.values(p.animalUtil.getRanks()).forEach((rank) => {
+		extraReplacers[rank.id] = rank.emoji;
+	});
+
+	return alterUtils.getAlterCommand('zoo', info.user, type, replacers, null, null, {
+		extraReplacers,
+	});
+}
 
 function replaceRanks(text, newRanks) {
 	for (let rank in newRanks) {
@@ -97,7 +137,6 @@ function crown(text) {
 		cp: '<a:cp1:663634207746162718> <a:cp2:663634213190369299>',
 		l: '<a:l1:663634215061028864> <a:l2:663634213135974420>',
 		g: '<a:g1:663634211814506498> <a:g2:663634214079561760>',
-		e: '<a:e1:663634214813433856> <a:e2:663634213483839498>',
 		f: '<a:f1:663634213194694674> <a:f2:663634213391564800>',
 		s: '<:blank:427371936482328596> <a:s1:663634214322700298>',
 		h: '<a:h1:663634208035569666> <a:h2:663634208828162049>',
@@ -164,7 +203,6 @@ function tiggy(text) {
 		p: '<:TigsSpecialP:747731304870707222>',
 		l: '<a:L:747732700127035453>',
 		g: '<a:G:747728798430003230>',
-		e: '<a:E:747731098645299212>',
 		f: '<a:F:747731099039301702>',
 		s: '<a:S:747728798488723516>',
 		h: '<a:H:747731098871660607>',
@@ -224,7 +262,7 @@ function lIlIIIll(text, opt) {
 	return text.join('\n');
 }
 
-function estee(text, opt) {
+function estee(text, _opt) {
 	let newRanks = {
 		c: '<a:c_:993718849914548225>',
 		u: '<a:u_:993718860471603280>',
@@ -242,7 +280,7 @@ function estee(text, opt) {
 	};
 
 	text = replaceRanks(text, newRanks).split('\n');
-	text[0] = `꧁༺ 𝓔𝓼𝓽𝓮𝓮'𝓼 𝓒𝓮𝓶𝓮𝓽𝓮𝓻𝔂 ༻꧂`;
+	text[0] = "꧁༺ 𝓔𝓼𝓽𝓮𝓮'𝓼 𝓒𝓮𝓶𝓮𝓽𝓮𝓻𝔂 ༻꧂";
 
 	return text.join('\n');
 }

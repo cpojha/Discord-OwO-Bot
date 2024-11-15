@@ -7,9 +7,6 @@
 
 const CommandInterface = require('../../CommandInterface.js');
 
-const tada = '🎉';
-const gear = '⚙';
-
 module.exports = new CommandInterface({
 	alias: ['giveperkticket', 'giveticket'],
 
@@ -33,7 +30,7 @@ async function parseUsers(p) {
 		try {
 			let result = await giveTicket(p, args[0], args[1], args[2]);
 			if (result) {
-				success += `\`[${result.count}] [${result.user.id}] ${result.user.username}#${result.user.discriminator}\`\n`;
+				success += `\`[${result.count}] [${result.user.id}] ${p.getUniqueName(result.user)}\`\n`;
 			} else {
 				failed += `\`failed for [${args.join(', ')}]\`\n`;
 			}
@@ -83,7 +80,7 @@ async function giveTicket(p, id, count = 1, type = 1) {
 
 	// Query result
 	let sql = `INSERT INTO user_item (uid, name, count) VALUES (${uid}, '${type}', ${count}) ON DUPLICATE KEY update count = count + ${count};`;
-	let result = await p.query(sql);
+	await p.query(sql);
 
 	// Send msgs
 	let user;

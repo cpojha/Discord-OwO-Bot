@@ -23,6 +23,15 @@ module.exports = class VanguardsBanner extends WeaponInterface {
 			'<:lvban:618001308284354561>',
 			'<:fvban:618001308544270337>',
 		];
+		this.pristineEmojis = [
+			'<:pcvban:1132239723478405180>',
+			'<:puvban:1132239735180513394>',
+			'<:prvban:1132239732777160754>',
+			'<:pevban:1132239724807999540>',
+			'<:pmvban:1132239730965229619>',
+			'<:plvban:1132239728519938120>',
+			'<:pfvban:1132239727236485302>',
+		];
 		this.defaultEmoji = '<:vban:618001308837740545>';
 		this.statDesc =
 			'Apply **Attack Up** to all allies for 2 turns. If the user has enough WP when the buff expires, the buff will be recasted with a stronger version.';
@@ -75,7 +84,12 @@ module.exports = class VanguardsBanner extends WeaponInterface {
 
 		// Grab buff and bind it to our animal
 		let buffLogs = new Logs();
+
 		for (let i = 0; i < ally.length; i++) {
+			// Add new buff
+			let buff = this.getBuffs(animal)[newBuff];
+			buffLogs.push(buff.attemptBind(ally[i], 3, { me: ally[i], allies: ally, enemies: enemy }));
+
 			// Remove old buff
 			if (oldBuffId) {
 				for (let j in ally[i].buffs) {
@@ -84,10 +98,6 @@ module.exports = class VanguardsBanner extends WeaponInterface {
 					}
 				}
 			}
-
-			// Add new buff
-			let buff = this.getBuffs(animal)[newBuff];
-			buffLogs.push(buff.bind(ally[i], 3, { me: ally[i], allies: ally, enemies: enemy }));
 		}
 		logs.push(`[VBAN] ${animal.nickname} applied ${newBuffName} to all allies`);
 

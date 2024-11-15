@@ -10,7 +10,6 @@ const CommandInterface = require('../../CommandInterface.js');
 const ud = require('urban-dictionary');
 const nextPageEmoji = '➡️';
 const prevPageEmoji = '⬅️';
-var count = 0;
 
 module.exports = new CommandInterface({
 	alias: ['define'],
@@ -66,7 +65,7 @@ module.exports = new CommandInterface({
 									run = false;
 								}
 								let embed = {
-									description: print,
+									description: print || '*no description*',
 									color: p.config.embed_color,
 									author: {
 										name: "Definition of '" + entries[0].word + "'",
@@ -83,8 +82,10 @@ module.exports = new CommandInterface({
 						}
 						display(p, pages);
 					}
+					/* eslint-disable-next-line */
 				} catch (err) {}
 			});
+			/* eslint-disable-next-line */
 		} catch (err) {}
 	},
 });
@@ -117,8 +118,8 @@ async function display(p, pages) {
 		}
 	});
 
-	collector.on('end', async function (collected) {
-		embed = pages[loc];
+	collector.on('end', async function (_collected) {
+		let embed = pages[loc];
 		embed.embed.color = 6381923;
 		await msg.edit({ content: 'This message is now inactive', embed });
 	});

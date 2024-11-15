@@ -22,15 +22,24 @@ module.exports = class GlacialAxe extends WeaponInterface {
 			'<:lgaxe:618389129817882625>',
 			'<:fgaxe:618389128396013598>',
 		];
+		this.pristineEmojis = [
+			'<:pcgaxe:1132239646789750885>',
+			'<:pugaxe:1132239658856751234>',
+			'<:prgaxe:1132239657665560616>',
+			'<:pegaxe:1132239649004335104>',
+			'<:pmgaxe:1132239655207718912>',
+			'<:plgaxe:1132239653743906837>',
+			'<:pfgaxe:1132239650505883718>',
+		];
 		this.defaultEmoji = '<:gaxe:618389128043692043>';
 		this.statDesc =
 			'Deals **?%** of your ' +
 			WeaponInterface.strEmoji +
-			'STR to a random opponent and apply **Freeze**';
+			'STR to a random opponent and apply **Freeze** for 2 turns';
 		this.availablePassives = 'all';
 		this.passiveCount = 1;
-		this.qualityList = [[50, 80]];
-		this.manaRange = [220, 120];
+		this.qualityList = [[20, 40]];
+		this.manaRange = [280, 180];
 		this.buffList = [5];
 	}
 
@@ -41,8 +50,13 @@ module.exports = class GlacialAxe extends WeaponInterface {
 		if (me.stats.wp[0] < this.manaCost) return this.attackPhysical(me, team, enemy);
 
 		/* Grab an enemy that I'm attacking */
-		let attacking = WeaponInterface.getAttacking(me, team, enemy);
+		let attacking = WeaponInterface.getAttacking(me, team, enemy, {
+			excludeBuff: [this.buffList[0]],
+		});
 		if (!attacking) return;
+
+		if (attacking.buffs.findIndex((buff) => buff.id === this.buffList[0]) >= 0)
+			return this.attackPhysical(me, team, enemy);
 
 		let logs = new Logs();
 
@@ -65,7 +79,7 @@ module.exports = class GlacialAxe extends WeaponInterface {
 			enemies: enemy,
 		});
 		let buff = this.getBuffs(me)[0];
-		let buffLogs = buff.bind(attacking, 1, {
+		let buffLogs = buff.attemptBind(attacking, 2, {
 			me,
 			allies: team,
 			enemies: enemy,

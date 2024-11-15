@@ -22,15 +22,17 @@ module.exports = class ArcaneScepter extends WeaponInterface {
 			'<:lascept:618001309773201409>',
 			'<:fascept:618001309156769793>',
 		];
+		this.pristineEmojis = [
+			'<:pcascept:1132227778410971186>',
+			'<:puascept:1132229397898870875>',
+			'<:puascept:1132229397898870875>',
+			'<:peascept:1132228075086676070>',
+			'<:pmascept:1132229015600627773>',
+			'<:plascept:1132228546882961418>',
+			'<:pfascept:1132228239234973767>',
+		];
 		this.defaultEmoji = '<:ascept:618001305692274698>';
-		this.statDesc =
-			'Replenish **?%** of your ' +
-			WeaponInterface.magEmoji +
-			'MAG as ' +
-			WeaponInterface.wpEmoji +
-			'WP to an ally with the lowest ' +
-			WeaponInterface.wpEmoji +
-			'WP';
+		this.statDesc = `Replenish **?%** of your ${WeaponInterface.magEmoji}MAG as ${WeaponInterface.wpEmoji}WP to an ally with the lowest ${WeaponInterface.wpEmoji}WP. This weapon can overreplenish up to 50% of max ${WeaponInterface.wpEmoji}WP.`;
 		this.availablePassives = 'all';
 		this.passiveCount = 1;
 		this.qualityList = [[40, 70]];
@@ -57,7 +59,8 @@ module.exports = class ArcaneScepter extends WeaponInterface {
 					lowest = team[i];
 			}
 		}
-		if (!lowest || WeaponInterface.isMaxWp(lowest)) return this.attackPhysical(me, team, enemy);
+		if (!lowest || WeaponInterface.isMaxWp(lowest, { overreplenish: true }))
+			return this.attackPhysical(me, team, enemy);
 
 		/* Calculate replenish */
 		let replenish = WeaponInterface.getDamage(me.stats.mag, this.stats[0] / 100);
@@ -72,11 +75,17 @@ module.exports = class ArcaneScepter extends WeaponInterface {
 		manaLogs.push(`[ASCEPT] ${me.nickname} used ${mana.amount} WP`, mana.logs);
 
 		/* replenish ally */
-		replenish = WeaponInterface.replenish(lowest, replenish, me, {
+		replenish = WeaponInterface.replenish(
+			lowest,
+			replenish,
 			me,
-			allies: team,
-			enemies: enemy,
-		});
+			{
+				me,
+				allies: team,
+				enemies: enemy,
+			},
+			{ overreplenish: true }
+		);
 		logs.push(
 			`[ASCEPT] ${me.nickname} replenished ${replenish.amount} WP to ${lowest.nickname}`,
 			replenish.logs

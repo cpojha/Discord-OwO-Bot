@@ -31,12 +31,10 @@ module.exports = new CommandInterface({
 		let result = await p.query(sql);
 
 		let count;
-		let isUser = true;
 		if (result[0].length) {
 			count = result[0][0].count;
 		} else if (result[2].length) {
 			count = result[2][0].count;
-			isUser = false;
 			const guild = await p.fetch.getGuild(p.args[0]);
 			const guildName = guild ? guild.name : p.args[0];
 			return p.send(
@@ -53,17 +51,15 @@ module.exports = new CommandInterface({
 		);
 		if (user && !user.dmError && count) {
 			p.send(
-				`📨 **|** Successfully reset owo count for **${
-					user.username + '#' + user.discriminator
-				}**\n${p.config.emoji.blank} **|** Previously had: ${count} owos`
+				`📨 **|** Successfully reset owo count for **${p.getUniqueName(user)}**\n${
+					p.config.emoji.blank
+				} **|** Previously had: ${count} owos`
 			);
 		} else if (count) {
 			p.send(
-				`⚠ **|** Successfully reset owo count for **${
-					user.username + '#' + user.discriminator
-				}**\n${p.config.emoji.blank} **|** Previously had: ${count} owos**\n${
+				`⚠ **|** Successfully reset owo count for **${p.getUniqueName(user)}**\n${
 					p.config.emoji.blank
-				} **|** I couldn't DM them.`
+				} **|** Previously had: ${count} owos**\n${p.config.emoji.blank} **|** I couldn't DM them.`
 			);
 		} else {
 			p.send(`⚠ **|** Failed to reset owo count for ${p.args[0]}`);

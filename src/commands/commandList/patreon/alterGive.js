@@ -4,10 +4,22 @@
  * This software is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
  * For more information, see README.md and LICENSE
  */
+const alterUtils = require('../../../utils/alterUtils.js');
 
 const blank = '<:blank:427371936482328596>';
 
-exports.alter = function (p, id, text, info) {
+exports.alter = async function (p, id, text, info) {
+	const result = await checkDb(p, info);
+	if (result) return result;
+	if (
+		info.senderlimit ||
+		info.senderoverlimit ||
+		info.receivelimit ||
+		info.receiveoverlimit ||
+		info.none
+	) {
+		return;
+	}
 	switch (id) {
 		case '456598711590715403':
 			return lexx(p, info);
@@ -17,22 +29,112 @@ exports.alter = function (p, id, text, info) {
 			return king(p, info);
 		case '816005571575808000':
 			return jayyy(p, info);
+		case '692146302284202134':
+			return leila(p, info);
 		default:
-			return checkReceive(p, text, info);
-			return text;
+			return await checkReceive(p, text, info);
 	}
 };
 
-function checkReceive(p, text, info) {
+async function checkReceive(p, text, info) {
 	info.receiver = true;
+	const result = await checkDb(p, info);
+	if (result) return result;
 	switch (info.to.id) {
 		case '816005571575808000':
 			return jayyy(p, info);
 		case '605994815317999635':
 			return rhine(p, info);
+		case '692146302284202134':
+			return leila(p, info);
 		default:
 			return text;
 	}
+}
+
+function checkDb(p, info) {
+	let type, replacers;
+	let user = info.from;
+	if (info.receiver) {
+		type = 'receive';
+		replacers = {
+			sender: p.getName(info.from),
+			sender_tag: p.getTag(info.from),
+			receiver: p.getName(info.to),
+			receiver_tag: p.getTag(info.to),
+			blank: p.config.emoji.blank,
+			amount: info.amount,
+		};
+		user = info.to;
+	} else if (info.none) {
+		type = 'none';
+		replacers = {
+			sender: p.getName(info.from),
+			sender_tag: p.getTag(info.from),
+			receiver: p.getName(info.to),
+			receiver_tag: p.getTag(info.to),
+			blank: p.config.emoji.blank,
+			amount: info.amount,
+		};
+	} else if (info.senderlimit) {
+		type = 'senderlimit';
+		replacers = {
+			sender: p.getName(info.from),
+			sender_tag: p.getTag(info.from),
+			receiver: p.getName(info.to),
+			receiver_tag: p.getTag(info.to),
+			blank: p.config.emoji.blank,
+			limit: info.limit,
+			limit_diff: info.limit_diff,
+			amount: info.amount,
+		};
+	} else if (info.senderoverlimit) {
+		type = 'senderoverlimit';
+		replacers = {
+			sender: p.getName(info.from),
+			sender_tag: p.getTag(info.from),
+			receiver: p.getName(info.to),
+			receiver_tag: p.getTag(info.to),
+			blank: p.config.emoji.blank,
+			limit: info.limit,
+			amount: info.amount,
+		};
+	} else if (info.receivelimit) {
+		type = 'receivelimit';
+		replacers = {
+			sender: p.getName(info.from),
+			sender_tag: p.getTag(info.from),
+			receiver: p.getName(info.to),
+			receiver_tag: p.getTag(info.to),
+			blank: p.config.emoji.blank,
+			limit: info.limit,
+			limit_diff: info.limit_diff,
+			amount: info.amount,
+		};
+	} else if (info.receiveoverlimit) {
+		type = 'receiveoverlimit';
+		replacers = {
+			sender: p.getName(info.from),
+			sender_tag: p.getTag(info.from),
+			receiver: p.getName(info.to),
+			receiver_tag: p.getTag(info.to),
+			blank: p.config.emoji.blank,
+			limit: info.limit,
+			amount: info.amount,
+		};
+	} else {
+		type = 'give';
+		replacers = {
+			sender: p.getName(info.from),
+			sender_tag: p.getTag(info.from),
+			receiver: p.getName(info.to),
+			receiver_tag: p.getTag(info.to),
+			blank: p.config.emoji.blank,
+			amount: info.amount,
+		};
+	}
+
+	return alterUtils.getAlterCommand('give', user, type, replacers);
 }
 
 function lexx(p, info) {
@@ -50,27 +152,29 @@ function lexx(p, info) {
 }
 
 function rhine(p, info) {
+	const smile = '<a:smile:1078625522839457924>';
+	const blossom = '<a:rhn_cherrytree:1124358034848743555>';
+	const thanks = '<a:thank:1078625521778298901>';
 	let embed;
 	if (info.receiver) {
 		embed = {
-			color: 16758235,
+			color: 16762075,
 			image: {
-				url: 'https://media.discordapp.net/attachments/886547029478768640/963001595472261140/ezgif-3-1f6690830d.gif',
+				url: 'https://media.discordapp.net/attachments/826119648868040775/1060107451321569280/ezgif-4-44fc74e5e7.gif',
 			},
 			description:
-				`🌸 | "Thank you so much, **${info.from.username}**!"` +
-				`\n👛 | **${info.to.username}** has received **${info.amount} cowoncy**!`,
+				`${blossom} **${info.to.username}** received a cherry blossoms tree with **${info.amount} blossoms** in her garden!` +
+				`\n${thanks} "Thank you so much, **${info.from.username}**!"`,
 		};
 	} else {
 		embed = {
-			color: 16758232,
+			color: 16762075,
 			image: {
-				url: 'https://media.discordapp.net/attachments/886547029478768640/963001595472261140/ezgif-3-1f6690830d.gif',
+				url: 'https://media.discordapp.net/attachments/826119648868040775/1060105165945970719/main-qimg-4ebf09188c61866237c4420e1ea7cd2f.gif',
 			},
 			description:
-				`💬 **|** **${info.from.username}** says: "Save money and money will save you."` +
-				`\n💵 **|** sent **${info.amount} cowoncy**` +
-				`\n🌸 **|** to **${info.to.username}**`,
+				`${smile} "Hi, **${info.to.username}**!"` +
+				`\n${blossom} **${info.from.username}** planted a cherry blossoms tree in your garden and it now has **${info.amount} blossoms** on it!`,
 		};
 	}
 	return { embed };
@@ -93,25 +197,45 @@ function king(p, info) {
 function jayyy(p, info) {
 	if (info.receiver) {
 		const embed = {
-			color: 11455218,
+			color: 15509716,
 			image: {
-				url: 'https://cdn.discordapp.com/attachments/921261347688308766/1032283209062416394/GIF-221019_175021.gif',
+				url: 'https://cdn.discordapp.com/attachments/921261347688308766/1103640755291037767/20230430_213350.gif',
 			},
 			description:
-				`<:snow1:1034776453348335646> **| ${info.to.username}** receives **${info.amount} Snowballs** <a:snow2:1034776454476603473> from **${info.from.username}**! <a:snow3:1034776452169728000><a:snow3:1034776452169728000>` +
-				`\n<:snow4:1034776448759771176> **| ${info.to.username}**:Happy Winters Cutie!! <:snow6:1034776455491637258><:snow6:1034776455491637258>`,
+				`<:heart:1120280184684294164> **| ${info.to.username}** receives **${info.amount} Blossoms** <:flower:1120280186051625020> from **${info.from.username}**! <:heart2:1120280187389620275><:heart2:1120280187389620275>` +
+				`\n<:heart3:1120280182595538954> **| ${info.to.username}** hopes these **Blossoms** bring serenity in you!!<a:bud:1120280188899557476><a:bud:1120280188899557476>`,
 		};
 		return { embed };
 	} else {
 		const embed = {
-			color: 11254221,
+			color: 15509716,
 			image: {
-				url: 'https://cdn.discordapp.com/attachments/921261347688308766/1032286989619314809/GIF-221019_190636.gif',
+				url: 'https://cdn.discordapp.com/attachments/921261347688308766/1103640366109950002/20230504_160739_1.gif',
 			},
 			description:
-				`<:snow1:1034776453348335646> **| ${info.from.username}** shares **${info.amount} Snowballs** <a:snow2:1034776454476603473> with **${info.to.username}**! <a:snow3:1034776452169728000><a:snow3:1034776452169728000>` +
-				`\n<:snow4:1034776448759771176> **| ${info.from.username}** hopes you can make a cute **Snowman**<a:snow5:1034776450160676876> now!! <:snow6:1034776455491637258><:snow6:1034776455491637258>`,
+				`<:heart:1120280184684294164> **| ${info.from.username}** shares **${info.amount} Blossoms** <:flower:1120280186051625020> with **${info.to.username}**! <:heart2:1120280187389620275><:heart2:1120280187389620275>` +
+				`\n<:heart3:1120280182595538954> **| ${info.from.username}** hopes these **Blossoms** bring serenity in you!!<a:bud:1120280188899557476><a:bud:1120280188899557476>`,
 		};
 		return { embed };
+	}
+}
+
+function leila(p, info) {
+	const star1 = '<:star1:1079721491148587028>';
+	const star2 = '<:star2:1079721494520811520>';
+	const star3 = '<:star3:1079721493564510278>';
+	const sparkle1 = '<a:sparkle:1079721492587229204>';
+	const sparkle2 = '<a:sparkle2:1079721490108387358>';
+
+	if (info.receiver) {
+		const msg =
+			`${star1} **| ${info.from.username}** just sent ${star3} **${info.amount} stars** to **${info.to.username}**` +
+			`\n${sparkle2} **|** Thank you for completing my galaxy ${sparkle2}`;
+		return msg;
+	} else {
+		const msg =
+			`${star1} **| ${info.from.username}** just sent **${star2} ${info.amount} stars** to **${info.to.username}**!` +
+			`\n${sparkle1} **|** You're a part of my galaxy ${sparkle1}`;
+		return msg;
 	}
 }

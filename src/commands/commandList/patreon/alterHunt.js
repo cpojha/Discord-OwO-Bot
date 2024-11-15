@@ -4,6 +4,7 @@
  * This software is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
  * For more information, see README.md and LICENSE
  */
+const alterUtils = require('../../../utils/alterUtils.js');
 
 const blank = '<:blank:427371936482328596>';
 const huntEmoji = '🌱';
@@ -91,7 +92,7 @@ async function checkDb(p, id, text, info) {
 	if (info.gemText) {
 		type = 'gems';
 		replacers = {
-			username: p.msg.author.username,
+			username: p.getName(),
 			discriminator: p.msg.author.discriminator,
 			blank: p.config.emoji.blank,
 			gems: info.gemText,
@@ -101,44 +102,22 @@ async function checkDb(p, id, text, info) {
 		};
 	} else {
 		type = 'nogems';
-		const animal = p.global.validAnimal(info.animal[0][1]);
+		const animal = p.global.validAnimal(info.animals[0].value);
 		replacers = {
-			username: p.msg.author.username,
+			username: p.getName(),
 			discriminator: p.msg.author.discriminator,
 			blank: p.config.emoji.blank,
 			pets: info.petText || '',
 			xp: info.animalXp || '',
-			a: getA(info.animal[0][2]),
-			animalRank: info.animal[0][2],
-			animalRankEmoji: info.animal[0][0].match(/<a?:\w*:\d*>/i)[0],
+			a: getA(info.animals[0].rank),
+			animalRank: info.animals[0].rank,
+			animalRankEmoji: info.animals[0].text.match(/<a?:\w*:\d*>/i)[0],
 			animal: info.animalEmojis,
 			animalName: animal.name,
 		};
 	}
-	const sql = `SELECT alterhunt.* from alterhunt INNER JOIN user ON alterhunt.uid = user.uid WHERE user.id = ${p.msg.author.id} AND alterhunt.type = '${type}'`;
-	const result = (await p.query(sql))[0];
-	if (!result || !result.text) return;
 
-	result.text += info.lootboxText || '';
-	result.text = p.global.replacer(result.text, replacers);
-	if (!result.isEmbed) {
-		return result.text;
-	}
-
-	return {
-		embed: {
-			description: result.text,
-			title: p.global.replacer(result.title, replacers),
-			color: result.color || 1,
-			footer: { text: p.global.replacer(result.footer, replacers) },
-			thumbnail: { url: result.sideImg },
-			image: { url: result.bottomImg },
-			author: {
-				name: p.global.replacer(result.author, replacers),
-				icon_url: result.showAvatar ? p.msg.author.avatarURL : null,
-			},
-		},
-	};
+	return alterUtils.getAlterCommand('alterhunt', p.msg.author, type, replacers, info.lootboxText);
 }
 
 function geist(text) {
@@ -427,14 +406,13 @@ function pheonix(text) {
 }
 
 function dalu(text) {
-	let foxhappy = '<:foxhappy:641916900544217088>';
-	let foxlove = '<:foxlove:641916900212867073>';
+	let _foxhappy = '<:foxhappy:641916900544217088>';
+	let _foxlove = '<:foxlove:641916900212867073>';
 	if (text.indexOf('empowered by') >= 0) {
 		text = text
 			.replace(', hunt is empowered by', ' is searching for food and uses ')
 			.replace('  !', ' to help him.')
 			.replace('You found', 'He found  his pray not far away');
-	} else {
 	}
 	let embed = {
 		description: text,
@@ -474,7 +452,7 @@ function blacky(text) {
 }
 
 function papershark(text) {
-	const shark1 = '<:shark1:663939570311888908>';
+	const _shark1 = '<:shark1:663939570311888908>';
 	const shark2 = '<a:shark2:663939570588450846>';
 	const shark3 = '<a:shark3:663939571322454016>';
 	const shark4 = '<a:shark4:663939571423117333>';
@@ -657,7 +635,7 @@ function u_1s1k(text, info) {
 	const zen = '<:zen:770081925490016257>';
 	const zen2 = '<:zen2:770081925401673760>';
 	const crystal = '<a:crystal:770081927012155413>';
-	const money = '<a:money:770081926236340235>';
+	const _money = '<a:money:770081926236340235>';
 
 	if (info.gemText) {
 		text = `${zen} **| ${info.author.username}**, ${crystal} Zeno ${crystal} has searched the universe far and wide with ${info.gemText}\n${zen2} **|** and came back with: ${info.animalEmojis}`;
@@ -917,7 +895,6 @@ function koala(text, info) {
 	const sapling = '🌱';
 
 	if (info.gemText) {
-		const gemText = info.gemText;
 		text = `${emoji} **| ${info.author.username}** goes into hunt!\n`;
 		text += `${blank} **|** ${info.gemText.replace(/\/\d+|`+/gi, '')}`;
 		const animals = info.animalEmojis.split(' ');
@@ -1006,8 +983,6 @@ function gojo(text, info) {
 }
 
 function vanor(text, info) {
-	let url, color;
-
 	const emoji = '<a:harleyquinn:832531027900628992>';
 
 	if (info.gemText) {

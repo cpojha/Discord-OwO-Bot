@@ -7,7 +7,7 @@
 
 const CommandInterface = require('../../CommandInterface.js');
 
-const maxBet = 150000;
+const maxBet = 250000;
 const slots = [
 	'<:eggplant:417475705719226369>',
 	'<:heart:417475705899712522>',
@@ -43,8 +43,7 @@ module.exports = new CommandInterface({
 	execute: async function (p) {
 		let global = p.global,
 			msg = p.msg,
-			args = p.args,
-			con = p.con;
+			args = p.args;
 		//Check arguments
 		let amount = 0;
 		let all = false;
@@ -73,7 +72,7 @@ module.exports = new CommandInterface({
 		if (all && result[0] != undefined) amount = result[0].money;
 		if (maxBet && amount > maxBet) amount = maxBet;
 		if (result[0] == undefined || result[0].money < amount || result[0].money <= 0) {
-			p.send('**🚫 | ' + msg.author.username + "**, You don't have enough cowoncy!", 3000);
+			p.send('**🚫 | ' + p.getName() + "**, You don't have enough cowoncy!", 3000);
 		} else {
 			//Decide results
 			let rslots = [];
@@ -139,69 +138,69 @@ module.exports = new CommandInterface({
 				amount +
 				';';
 			result = await p.query(sql);
-			p.logger.incr(`cowoncy`, win - amount, { type: 'slots' }, p.msg);
-			p.logger.incr(`gamble`, logging, { type: 'slots' }, p.msg);
+			p.logger.incr('cowoncy', win - amount, { type: 'slots' }, p.msg);
+			p.logger.incr('gamble', logging, { type: 'slots' }, p.msg);
 
 			//Display slots
 			let machine =
-				'**`___SLOTS___  `**\n' +
+				'**  `___SLOTS___`**\n` ` ' +
 				moving +
 				' ' +
 				moving +
 				' ' +
 				moving +
-				'   ' +
-				msg.author.username +
+				' ` ` ' +
+				p.getName() +
 				' bet <:cowoncy:416043450337853441> ' +
 				p.global.toFancyNum(amount) +
-				'\n`|         |`\n`|         |`';
+				'\n  `|         |`\n  `|         |`';
 			machine = alterSlot.alter(p.msg.author.id, machine);
 			let message = await p.send(machine);
 			setTimeout(async function () {
 				machine =
-					'**`___SLOTS___  `**\n' +
+					'**  `___SLOTS___`**\n` ` ' +
 					rslots[0] +
 					' ' +
 					moving +
 					' ' +
 					moving +
-					'   ' +
-					msg.author.username +
+					' ` ` ' +
+					p.getName() +
 					' bet <:cowoncy:416043450337853441> ' +
 					p.global.toFancyNum(amount) +
-					'\n`|         |`\n`|         |`';
+					'\n  `|         |`\n  `|         |`';
 				machine = alterSlot.alter(p.msg.author.id, machine);
 				await message.edit(machine);
 				setTimeout(async function () {
 					machine =
-						'**`___SLOTS___  `**\n' +
+						'**  `___SLOTS___`**\n` ` ' +
 						rslots[0] +
 						' ' +
 						moving +
 						' ' +
 						rslots[2] +
-						'   ' +
-						msg.author.username +
+						' ` ` ' +
+						p.getName() +
 						' bet <:cowoncy:416043450337853441> ' +
 						p.global.toFancyNum(amount) +
-						'\n`|         |`\n`|         |`';
+						'\n  `|         |`\n  `|         |`';
 					machine = alterSlot.alter(p.msg.author.id, machine);
 					await message.edit(machine);
 					setTimeout(async function () {
 						machine =
-							'**`___SLOTS___  `**\n' +
+							'**  `___SLOTS___`**\n` ` ' +
 							rslots[0] +
 							' ' +
 							rslots[1] +
 							' ' +
 							rslots[2] +
-							'   ' +
-							msg.author.username +
+							' ` ` ' +
+							p.getName() +
 							' bet <:cowoncy:416043450337853441> ' +
 							p.global.toFancyNum(amount) +
-							'\n`|         |`  and won ' +
+							'\n  `|         |`   and won ' +
 							winmsg +
-							'\n`|         |`';
+							'\n  `|         |`';
 						machine = alterSlot.alter(p.msg.author.id, machine);
 						message.edit(machine);
 					}, 1000);

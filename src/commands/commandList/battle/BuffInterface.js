@@ -4,12 +4,18 @@
  * This software is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
  * For more information, see README.md and LICENSE
  */
+/* eslint-disable no-unused-vars */
+const Tags = require('./util/tags.js');
+const Logs = require('./util/logUtil.js');
+const WeaponInterface = require('./WeaponInterface.js');
 
 module.exports = class BuffInterface {
 	/* Constructor */
-	constructor(from, qualities, duration, noCreate) {
+	constructor(from, qualities, duration, noCreate, opt = {}) {
 		this.init();
 		if (noCreate) return;
+
+		this.wear = WeaponInterface.getWear(opt.wear);
 
 		/* Initialize random qualities if it doesnt have any */
 		if (!qualities) qualities = this.randomQualities();
@@ -17,13 +23,14 @@ module.exports = class BuffInterface {
 
 		/* Calculate avg quality of this buff */
 		let avgQuality = qualities.reduce((a, b) => a + b, 0) / qualities.length;
+		avgQuality += this.wearBuff;
 
 		/* Construct stats based on qualities */
 		let stats = this.toStats(qualities);
 
 		/* Construct desc */
 		let desc = this.statDesc;
-		for (var i = 0; i < stats.length; i++) {
+		for (let i = 0; i < stats.length; i++) {
 			desc = desc.replace('?', stats[i]);
 		}
 
@@ -38,8 +45,8 @@ module.exports = class BuffInterface {
 
 	/* Get random qualities based on quality list */
 	randomQualities() {
-		var qualities = [];
-		for (var i = 0; i < this.qualityList.length; i++)
+		let qualities = [];
+		for (let i = 0; i < this.qualityList.length; i++)
 			qualities.push(Math.trunc(Math.random() * 101));
 		return qualities;
 	}
@@ -48,11 +55,12 @@ module.exports = class BuffInterface {
 	toStats(qualities) {
 		if (qualities.length != this.qualityList.length)
 			throw new Error('Array size does not match in toStats. Buff id:' + this.id);
-		var stats = [];
-		for (var i = 0; i < qualities.length; i++) {
+		let stats = [];
+		for (let i = 0; i < qualities.length; i++) {
 			let quality = qualities[i];
 			if (quality > 100) quality = 100;
 			if (quality < 0) quality = 0;
+			quality += this.wearBuff;
 			let min = this.qualityList[i][0];
 			let max = this.qualityList[i][1];
 
@@ -62,8 +70,45 @@ module.exports = class BuffInterface {
 		return stats;
 	}
 
+	attemptBind(animal, duration, tags) {
+		if (!(tags instanceof Tags)) {
+			tags = new Tags({
+				me: tags.me,
+				allies: tags.allies,
+				enemies: tags.enemies,
+			});
+		}
+
+		let logs = new Logs();
+		let preLogs = new Logs();
+		let dontBind = false;
+
+		for (let i in animal.buffs) {
+			const preBindResult = animal.buffs[i].preBind(animal, duration, tags, this) || {};
+			dontBind = dontBind || preBindResult.dontBind;
+			preLogs.push(preBindResult.logs);
+		}
+
+		if (!dontBind) {
+			logs.push(this.bind(animal, duration, tags));
+		}
+
+		logs.push(preLogs);
+		return logs;
+	}
+
+	/* before buff is binded */
+	preBind(animal, duration, tags) {}
+
 	/* Bind this buff to an animal */
-	bind(animal, duration, tags = {}) {
+	bind(animal, duration, tags) {
+		if (!(tags instanceof Tags)) {
+			tags = new Tags({
+				me: tags.me,
+				allies: tags.allies,
+				enemies: tags.enemies,
+			});
+		}
 		if (duration) this.duration = duration;
 		animal.buffs.push(this);
 		this.justCreated = true;
@@ -95,9 +140,7 @@ module.exports = class BuffInterface {
 	postReplenished(animal, healer, amount, tag) {}
 
 	/* when an enemy chooses an opponent */
-	enemyChooseAttack(animal, attacker, attackee, ally, enemy) {
-		return attackee;
-	}
+	enemyChooseAttack(animal, attacker, ally, enemy) {}
 
 	/* If the passive owner is allowed to attack */
 	canAttack(me, ally, enemy, action, result) {}
@@ -122,5 +165,9 @@ module.exports = class BuffInterface {
 	}
 	static get getQualityList() {
 		return new this(null, null, null, true).qualityList;
+	}
+
+	get wearBuff() {
+		return this.wear?.buff || 0;
 	}
 };

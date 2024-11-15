@@ -6,7 +6,6 @@
  */
 
 const CommandInterface = require('../../CommandInterface.js');
-const config = require('../../../data/config.json');
 
 const emoji = '<a:crystal:976030431428354048>';
 const owners = ['460987842961866762'];
@@ -17,15 +16,14 @@ const giveAmount = 1;
 
 const desc =
 	"Destined to cross paths but never to meet.\nIn this lifetime, I loved your soul before I could touch you. Unable to change this time line, where we're not destined to complete our love story.\nIn this lifetime, this destiny, you're my last love, my one and only love.\nBut these promises are just sweet lies therefore, I owe you and will love you onto the next life to complete our story.";
-const brokeMsg = `, you do not have any Destiny! >:c`;
-const giveMsg = `, you have been given 1 Destined to love.`;
+const brokeMsg = ', you do not have any Destiny! >:c';
+const giveMsg = ', you have been given 1 Destined to love.';
 
 const hasMerge = false;
 const mergeNeeded = 3;
-const mergeEmoji = '';
-const mergeMsg = ``;
+const mergeMsg = '';
 
-function getDisplay(count, mergeCount) {
+function getDisplay(_count, _mergeCount) {
 	return `, you currently have ?count? ${emoji} Destiny?plural?!`;
 }
 

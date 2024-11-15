@@ -15,8 +15,8 @@ exports.display = async function (p, user, opt) {
 
 	/* Returns a promise to avoid callback hell */
 	try {
-		return new Promise((resolve, reject) => {
-			let req = request(
+		return new Promise((resolve, _reject) => {
+			request(
 				{
 					method: 'POST',
 					uri: `${process.env.GEN_API_HOST}/levelgen`,
@@ -74,8 +74,7 @@ async function generateJson(p, user, opt) {
 		},
 		user: {
 			avatarURL,
-			name: user.username,
-			discriminator: user.discriminator,
+			name: p.getName(user),
 			title,
 		},
 		aboutme,
@@ -97,6 +96,7 @@ async function getRank(p, user, opt) {
 	};
 }
 
+/* eslint-disable-next-line */
 function shortenInt(value) {
 	let newValue = value;
 	if (value >= 1000) {

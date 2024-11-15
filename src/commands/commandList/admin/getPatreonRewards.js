@@ -41,10 +41,10 @@ async function getPatreons(p) {
 		console.error(err);
 		return;
 	}
-	console.log(patreons);
 	let result = [];
 	if (p.args[0] != 'ignoresql') {
-		let sql = `SELECT id FROM user INNER JOIN patreons ON user.uid = patreons.uid WHERE TIMESTAMPDIFF(MONTH,patreonTimer,NOW())<patreonMonths;`;
+		let sql =
+			'SELECT id FROM user INNER JOIN patreons ON user.uid = patreons.uid WHERE TIMESTAMPDIFF(MONTH,patreonTimer,NOW())<patreonMonths;';
 		result = await p.query(sql);
 	}
 
@@ -69,7 +69,8 @@ async function getPatreons(p) {
 	}
 
 	console.log('custom pet');
-	csv = 'Discord Name,Discord ID,Patreon Name,Pet Name,hp str pr wp mag mr,Pet Desc,Pet ID,SQL\n';
+	let csv =
+		'Discord Name,Discord ID,Patreon Name,Pet Name,hp str pr wp mag mr,Pet Desc,Pet ID,SQL\n';
 	if (patreons.pet.length) {
 		text += '\n**Custom Pet**\n';
 		let list = patreons.pet;

@@ -7,7 +7,6 @@
 
 const CommandInterface = require('../../CommandInterface.js');
 
-const { createCanvas, Canvas, Image } = require('canvas');
 const canvasUtil = require('./canvasUtil.js');
 
 module.exports = new CommandInterface({
@@ -62,9 +61,9 @@ module.exports = new CommandInterface({
 		}
 		canvasUtil.loadBackground(
 			'./src/data/images/tradeoffer.jpg',
-			function (err, ctx, canvas, image) {
+			function (err, ctx, canvas, _image) {
 				if (err) {
-					p.send('**🚫 | ' + p.msg.author.username + '**, Uh oh.. this command is broken!', 3000);
+					p.send('**🚫 | ' + p.getName() + '**, Uh oh.. this command is broken!', 3000);
 					return;
 				}
 
@@ -93,15 +92,15 @@ module.exports = new CommandInterface({
 							textArgs.y = 470;
 							textArgs.imageSize = 165;
 							canvasUtil.addText(textArgs, p, ctx, canvas, function () {
-								buf = canvas.toBuffer();
-								p.send('**🖼 | ' + p.msg.author.username + '** generated a meme!', null, {
+								let buf = canvas.toBuffer();
+								p.send('**🖼 | ' + p.getName() + '** generated a meme!', null, {
 									file: buf,
 									name: 'meme.png',
 								});
 							});
 						} else {
-							buf = canvas.toBuffer();
-							p.send('**🖼 | ' + p.msg.author.username + '** generated a meme!', null, {
+							let buf = canvas.toBuffer();
+							p.send('**🖼 | ' + p.getName() + '** generated a meme!', null, {
 								file: buf,
 								name: 'meme.png',
 							});

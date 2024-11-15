@@ -70,7 +70,7 @@ module.exports = new CommandInterface({
 			}
 		});
 
-		collector.on('end', async function (collected) {
+		collector.on('end', async function (_collected) {
 			page = await createPage(p, currentPage, totalPages);
 			page.embed.color = 6381923;
 			await msg.edit({
@@ -89,7 +89,7 @@ async function createPage(p, page, totalPages) {
 
 	let embed = {
 		author: {
-			name: p.msg.author.username + "'s wallpapers",
+			name: p.getName() + "'s wallpapers",
 			icon_url: p.msg.author.avatarURL,
 		},
 		color: p.config.embed_color,

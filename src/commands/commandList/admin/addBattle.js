@@ -33,7 +33,7 @@ async function parseUsers(p) {
 			try {
 				let result = await addPerk(p, id);
 				if (result) {
-					success += `\`[${result.user.id}] ${result.user.username}#${result.user.discriminator}\`\n`;
+					success += `\`[${result.user.id}] ${p.getUniqueName(result.user)}\`\n`;
 				} else {
 					failed += `\`failed for [${id}]\`\n`;
 				}
@@ -48,7 +48,7 @@ async function parseUsers(p) {
 
 async function addPerk(p, id) {
 	// Fetch uid first
-	const uid = await p.global.getUid(id);
+	await p.global.getUid(id);
 	await patreonUtil.giveCustomBattle(p, id);
 
 	// Send msgs

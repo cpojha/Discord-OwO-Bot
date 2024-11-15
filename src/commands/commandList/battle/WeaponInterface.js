@@ -4,10 +4,14 @@
  * This software is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
  * For more information, see README.md and LICENSE
  */
+/* eslint-disable no-unused-vars */
 
-const PassiveInterface = require('./PassiveInterface.js');
+const mysql = require('../../../botHandlers/mysqlHandler.js');
+const global = require('../../../utils/global.js');
 const Logs = require('./util/logUtil.js');
+const Tags = require('./util/tags.js');
 const requireDir = require('require-dir');
+let weaponUtil;
 const ranks = [
 	[0.2, 'Common', '<:common:416520037713838081>'],
 	[0.2, 'Uncommon', '<:uncommon:416520056269176842>'],
@@ -17,10 +21,43 @@ const ranks = [
 	[0.05, 'Legendary', '<a:legendary:417955061801680909>'],
 	[0.01, 'Fabled', '<a:fabled:438857004493307907>'],
 ];
+const wearInfo = {
+	'pristine': {
+		name: 'Pristine',
+		id: 4,
+		chance: 0.01,
+		buff: 5,
+	},
+	'fine': {
+		name: 'Fine',
+		id: 3,
+		chance: 0.05,
+		buff: 3,
+	},
+	'decent': {
+		name: 'Decent',
+		id: 2,
+		chance: 0.1,
+		buff: 1,
+	},
+	'worn': {
+		name: 'Worn',
+		id: 1,
+		chance: 0,
+		buff: 0,
+	},
+	'unknown': {
+		name: 'Unknown',
+		id: 0,
+		chance: 0,
+		buff: 0,
+	},
+};
+const ttChance = 0.1;
 
 module.exports = class WeaponInterface {
 	/* Constructor */
-	constructor(cpassives, qualities, noCreate) {
+	constructor(cpassives, qualities, noCreate, opt = {}) {
 		this.init();
 		if (this.availablePassives === 'all') {
 			this.availablePassives = [];
@@ -28,7 +65,27 @@ module.exports = class WeaponInterface {
 				if (!passives[i].disabled) this.availablePassives.push(i);
 			}
 		}
+
 		if (noCreate) return;
+
+		/* Good wear values give bonuses */
+		if (typeof opt.wear === 'number') {
+			this.setWear(opt.wear);
+		} else {
+			this.setRandomWear();
+		}
+		/* how many times the weapon tried to be rerolled */
+		this.rrAttempt = opt.rrAttempt || 0;
+		/* how many times the weapon has been rerolled */
+		this.rrCount = opt.rrCount || 0;
+		/* keeps track of kills this weapon has */
+		if (typeof opt.hasTT === 'boolean') {
+			this.hasTT = opt.hasTT;
+		} else {
+			this.setRandomTT();
+		}
+		this.kills = opt.kills || 0;
+		this.currKills = {};
 
 		/* Keep track of quality list length for buff quality purposes */
 		this.initialQualityListLength = this.qualityList.length;
@@ -44,22 +101,28 @@ module.exports = class WeaponInterface {
 		/* Mana will also have a quality (always last in quality array) */
 		if (this.manaRange) this.qualityList.push(this.manaRange);
 
+		/* Overrides */
+		const statOverride = opt.statOverride;
+		if (opt.passives) cpassives = this.determinedPassives(opt.passives, statOverride);
+
 		/* Get random vars if not present */
-		if (!cpassives) cpassives = this.randomPassives();
-		if (!qualities) qualities = this.randomQualities();
+		if (!cpassives) cpassives = this.randomPassives(statOverride);
+		else cpassives.forEach((passive) => passive.setWear(this.wear?.id));
+		if (!qualities) qualities = this.randomQualities(statOverride);
 
 		/* Construct stats */
 		let stats = this.toStats(qualities);
 
 		/* Check if it has enough emojis */
 		if (this.emojis.length != 7) throw `[${this.id}] does not have 7 emojis`;
+		if (this.pristineEmojis.length != 7) throw `[${this.id}] does not have 7 pristine emojis`;
 
 		/* Get the quality of the weapon */
 		let avgQuality = 0;
 		if (cpassives.length > 0) {
 			let totalQualities = qualities.reduce((a, b) => a + b, 0);
 			let qualityCount = qualities.length;
-			for (var i = 0; i < cpassives.length; i++) {
+			for (let i = 0; i < cpassives.length; i++) {
 				totalQualities += cpassives[i].qualities.reduce((a, b) => a + b, 0);
 				qualityCount += cpassives[i].qualities.length;
 			}
@@ -68,28 +131,16 @@ module.exports = class WeaponInterface {
 			avgQuality = qualities.reduce((a, b) => a + b, 0) / qualities.length;
 		}
 		avgQuality = Math.trunc(avgQuality);
+		avgQuality += this.wearBuff;
 
 		let emoji = this.getEmoji(avgQuality);
 
 		/* Determine rank */
-		let rank = 0;
-		for (var i = 0; i < ranks.length; i++) {
-			rank += ranks[i][0];
-			if (avgQuality / 100 <= rank) {
-				rank = ranks[i];
-				i = ranks.length;
-			} else if (i == ranks.length - 1) {
-				rank = ranks[0];
-			}
-		}
-		rank = {
-			name: rank[1],
-			emoji: rank[2],
-		};
+		let rank = WeaponInterface.getRank(avgQuality);
 
 		/* Construct desc */
 		let desc = this.statDesc;
-		for (var i = 0; i < stats.length; i++) {
+		for (let i = 0; i < stats.length; i++) {
 			desc = desc.replace('?', stats[i]);
 		}
 
@@ -109,13 +160,13 @@ module.exports = class WeaponInterface {
 
 	/* Alters the animal's stats */
 	alterStats(stats) {
-		for (var i = 0; i < this.passives.length; i++) this.passives[i].alterStats(stats);
+		for (let i = 0; i < this.passives.length; i++) this.passives[i].alterStats(stats);
 	}
 
 	/* Grabs a random passive(s) */
-	randomPassives() {
+	randomPassives(statOverride) {
 		let randPassives = [];
-		for (var i = 0; i < this.passiveCount; i++) {
+		for (let i = 0; i < this.passiveCount; i++) {
 			let rand = Math.floor(Math.random() * this.availablePassives.length);
 			let passive = this.availablePassives[rand];
 			passive = passives[passive];
@@ -123,16 +174,24 @@ module.exports = class WeaponInterface {
 				throw (
 					'Could not get passive[' + this.availablePassives[rand] + '] for weapon[' + this.id + ']'
 				);
-			randPassives.push(new passive());
+			randPassives.push(new passive(null, null, { statOverride, wear: this.wear?.id }));
 		}
 		return randPassives;
 	}
 
+	/* Grab predetermined passive(s) */
+	determinedPassives(passiveList, statOverride) {
+		return passiveList.map((pid) => {
+			let passive = passives[pid];
+			return new passive(null, null, { statOverride, wear: this.wear?.id });
+		});
+	}
+
 	/* Inits random qualities */
-	randomQualities() {
-		var qualities = [];
-		for (var i = 0; i < this.qualityList.length; i++)
-			qualities.push(Math.trunc(Math.random() * 101));
+	randomQualities(statOverride) {
+		let qualities = [];
+		for (let i = 0; i < this.qualityList.length; i++)
+			qualities.push(statOverride || Math.trunc(Math.random() * 101));
 		return qualities;
 	}
 
@@ -140,11 +199,12 @@ module.exports = class WeaponInterface {
 	toStats(qualities) {
 		if (qualities.length != this.qualityList.length)
 			throw 'Array size does not match in toStats. Weapon id:' + this.id;
-		var stats = [];
-		for (var i = 0; i < qualities.length; i++) {
+		let stats = [];
+		for (let i = 0; i < qualities.length; i++) {
 			let quality = qualities[i];
 			if (quality > 100) quality = 100;
 			if (quality < 0) quality = 0;
+			quality += this.wearBuff;
 			let min = this.qualityList[i][0];
 			let max = this.qualityList[i][1];
 
@@ -162,7 +222,11 @@ module.exports = class WeaponInterface {
 			for (let i in this.buffList) {
 				let buff = buffs[this.buffList[i]];
 				let buffQualityLength = buff.getQualityList.length;
-				buffClasses.push(new buff(from, this.qualities.slice(index, index + buffQualityLength)));
+				buffClasses.push(
+					new buff(from, this.qualities.slice(index, index + buffQualityLength), null, null, {
+						wear: this.wear?.id,
+					})
+				);
 				index += buffQualityLength;
 			}
 		}
@@ -183,14 +247,21 @@ module.exports = class WeaponInterface {
 	/* Get list of alive animals */
 	static getAlive(team) {
 		let alive = [];
-		for (var i in team) {
-			if (team[i].stats.hp[0] > 0) alive.push(i);
+		for (let i in team) {
+			if (team[i].stats.hp[0] > 0) alive.push(team[i]);
 		}
 		return alive;
 	}
 
 	/* Uses mana */
 	static useMana(me, amount, from, tags) {
+		if (!(tags instanceof Tags)) {
+			tags = new Tags({
+				me: tags.me,
+				allies: tags.allies,
+				enemies: tags.enemies,
+			});
+		}
 		let logs = new Logs();
 
 		me.stats.wp[0] -= amount;
@@ -231,20 +302,55 @@ module.exports = class WeaponInterface {
 	}
 
 	/* Get an enemy to attack */
-	static getAttacking(me, team, enemy) {
+	static getAttacking(me, team, enemy, opt = {}) {
 		let alive = WeaponInterface.getAlive(enemy);
-		let attacking = enemy[alive[Math.trunc(Math.random() * alive.length)]];
-		for (let i in enemy) {
-			if (enemy[i].stats.hp[0] > 0)
-				for (let j in enemy[i].buffs)
-					attacking = enemy[i].buffs[j].enemyChooseAttack(enemy[i], me, attacking, team, enemy);
+
+		if (!opt.ignoreChoose) {
+			for (let i in alive) {
+				for (let j in alive[i].buffs) {
+					let animal = alive[i].buffs[j].enemyChooseAttack(alive[i], me, team, enemy);
+					if (animal) {
+						animal = WeaponInterface.getRandomAnimal([animal], opt);
+						if (animal) {
+							return animal;
+						}
+					}
+				}
+			}
 		}
-		return attacking;
+
+		return WeaponInterface.getRandomAnimal(alive, opt);
+	}
+
+	/* Get a random animal */
+	static getRandomAnimal(team, { hasBuff, hasDebuff, isAlive, excludeBuffs } = {}) {
+		let list = (isAlive && WeaponInterface.getAlive(team)) || team;
+
+		if (hasDebuff) {
+			list = list.filter(WeaponInterface.hasBadBuff);
+		}
+
+		if (hasBuff) {
+			list = list.filter(WeaponInterface.hasGoodBuff);
+		}
+
+		if (excludeBuffs) {
+			list = list.filter((animal) => {
+				return WeaponInterface.hasExcludeBuffs(animal, excludeBuffs);
+			});
+		}
+
+		return list[Math.trunc(Math.random() * list.length)];
 	}
 
 	/* Calculate the damage output (Either mag or att) */
 	static getDamage(stat, multiplier = 1) {
 		return Math.round(multiplier * (stat[0] + stat[1]) + (Math.random() * 100 - 50));
+	}
+
+	/* Calculate the damage output (Either hp or wp) */
+	static getDamageFromHpWp(stat, multiplier = 1) {
+		return Math.round(multiplier * (stat[1] + stat[3]) + (Math.random() * 100 - 50));
 	}
 
 	/* Get mixed damage */
@@ -257,9 +363,17 @@ module.exports = class WeaponInterface {
 	}
 
 	/* Deals damage to an opponent */
-	static inflictDamage(attacker, attackee, damage, type, tags = {}) {
+	static inflictDamage(attacker, attackee, damage, type, tags, { bypassRes } = {}) {
+		if (!(tags instanceof Tags)) {
+			tags = new Tags({
+				me: tags.me,
+				allies: tags.allies,
+				enemies: tags.enemies,
+			});
+		}
 		let totalDamage = 0;
-		if (type == WeaponInterface.PHYSICAL)
+		if (bypassRes) totalDamage = damage;
+		else if (type == WeaponInterface.PHYSICAL)
 			totalDamage = damage * (1 - WeaponInterface.resToPercent(attackee.stats.pr));
 		else if (type == WeaponInterface.MAGICAL)
 			totalDamage = damage * (1 - WeaponInterface.resToPercent(attackee.stats.mr));
@@ -289,7 +403,11 @@ module.exports = class WeaponInterface {
 					attacker.weapon.passives[i].attack(attacker, attackee, totalDamage, type, tags)
 				);
 
-		/* After bonus damage calculation */
+		totalDamage = totalDamage.reduce((a, b) => a + b, 0);
+		if (totalDamage < 0) totalDamage = 0;
+		attackee.stats.hp[0] -= totalDamage;
+
+		/* After bonus damage calculation, should not alter damage */
 		/* Event for attackee */
 		for (let i in attackee.buffs)
 			subLogs.push(attackee.buffs[i].postAttacked(attackee, attacker, totalDamage, type, tags));
@@ -307,15 +425,23 @@ module.exports = class WeaponInterface {
 					attacker.weapon.passives[i].postAttack(attacker, attackee, totalDamage, type, tags)
 				);
 
-		totalDamage = totalDamage.reduce((a, b) => a + b, 0);
-		if (totalDamage < 0) totalDamage = 0;
-		attackee.stats.hp[0] -= totalDamage;
+		WeaponInterface.checkTT(attacker, attackee);
 		return { amount: Math.round(totalDamage), logs: subLogs };
 	}
 
 	/* heals */
-	static heal(me, amount, from, tags = {}) {
+	static heal(me, amount, from, tags, { overheal } = {}) {
+		if (!(tags instanceof Tags)) {
+			tags = new Tags({
+				me: tags.me,
+				allies: tags.allies,
+				enemies: tags.enemies,
+			});
+		}
 		let max = me.stats.hp[1] + me.stats.hp[3];
+		if (overheal) {
+			max *= 1.5;
+		}
 		/* Full health */
 		if (!me || me.stats.hp[0] >= max) return { amount: 0 };
 
@@ -371,8 +497,19 @@ module.exports = class WeaponInterface {
 	}
 
 	/* replenishes mana*/
-	static replenish(me, amount, from, tags = {}) {
+	static replenish(me, amount, from, tags, { overreplenish } = {}) {
+		if (!(tags instanceof Tags)) {
+			tags = new Tags({
+				me: tags.me,
+				allies: tags.allies,
+				enemies: tags.enemies,
+			});
+		}
+
 		let max = me.stats.wp[1] + me.stats.wp[3];
+		if (overreplenish) {
+			max *= 1.5;
+		}
 		/* Full mana */
 		if (!me || me.stats.wp[0] >= max) return { amount: 0 };
 
@@ -427,22 +564,44 @@ module.exports = class WeaponInterface {
 		return { amount: Math.round(total), logs: subLogs };
 	}
 
+	static checkTT(attacker, attackee) {
+		if (attackee.stats.hp[0] > 0) return;
+		if (attacker.weapon?.hasTT) {
+			attacker.weapon.addTTKill(attackee);
+		}
+	}
+
+	addTTKill(battleAnimal) {
+		this.currKills[battleAnimal.pid] = true;
+	}
+
+	saveTT() {
+		const currKills = Object.keys(this.currKills).length;
+		if (currKills) {
+			const sql = `UPDATE IGNORE user_weapon_kills
+					SET kills = kills + ${currKills}
+					WHERE uwid = ${this.ruwid};`;
+			return mysql.query(sql);
+		}
+	}
+
 	getEmoji(quality) {
 		/* If there are multiple quality, get avg */
 		if (typeof quality == 'string') {
 			quality = parseInt(quality.split(','));
 			quality = quality.reduce((a, b) => a + b, 0) / quality.length;
 		}
-
 		quality /= 100;
 
+		const emojisList = this.wear?.buff ? this.pristineEmojis : this.emojis;
+
 		/* Get correct rank */
-		var count = 0;
-		for (var i = 0; i < ranks.length; i++) {
+		let count = 0;
+		for (let i = 0; i < ranks.length; i++) {
 			count += ranks[i][0];
-			if (quality <= count) return this.emojis[i];
+			if (quality <= count) return emojisList[i];
 		}
-		return this.emojis[0];
+		return emojisList[6];
 	}
 
 	rerollStats() {
@@ -457,27 +616,68 @@ module.exports = class WeaponInterface {
 			newPassives.push(new PassiveClass());
 		}
 
-		return new WeaponClass(newPassives, newQualities);
+		let newWear = this.wear.id;
+		if (newWear > 1) newWear--;
+		return new WeaponClass(newPassives, newQualities, null, {
+			rrAttempt: this.rrAttempt,
+			rrCount: this.rrCount + 1,
+			hasTT: this.hasTT,
+			kills: this.kills,
+			wear: newWear,
+		});
 	}
 
 	rerollPassives() {
 		let WeaponClass = weapons[this.id];
 		if (!WeaponClass) throw 'Weapon Not Found for reroll';
 
-		return new WeaponClass(null, this.qualities);
+		let newWear = this.wear.id;
+		if (newWear > 1) newWear--;
+		return new WeaponClass(null, this.qualities, null, {
+			rrAttempt: this.rrAttempt,
+			rrCount: this.rrCount + 1,
+			hasTT: this.hasTT,
+			kills: this.kills,
+			wear: newWear,
+		});
+	}
+
+	static getRank(avgQuality) {
+		let rank = 0;
+		avgQuality /= 100;
+		for (let i = 0; i < ranks.length; i++) {
+			rank += ranks[i][0];
+			if (avgQuality <= rank) {
+				rank = ranks[i];
+				i = ranks.length;
+			} else if (i == ranks.length - 1) {
+				rank = ranks[6];
+			}
+		}
+		return {
+			name: rank[1],
+			emoji: rank[2],
+		};
 	}
 
 	/* Get lowest hp animal */
-	static getLowestHp(team) {
+	static getLowestHp(team, { noBuff } = {}) {
 		let lowest = undefined;
-		for (let i = 0; i < team.length; i++)
-			if (team[i].stats.hp[0] > 0)
-				if (
-					!lowest ||
-					lowest.stats.hp[0] / (lowest.stats.hp[1] + lowest.stats.hp[3]) >
-						team[i].stats.hp[0] / (team[i].stats.hp[1] + team[i].stats.hp[3])
-				)
+		for (let i = 0; i < team.length; i++) {
+			if (team[i].stats.hp[0] > 0) {
+				if (noBuff && WeaponInterface.hasBuff(team[i], noBuff)) {
+					/* blank */
+				} else if (!lowest) {
 					lowest = team[i];
+				} else {
+					let lowestHp = lowest.stats.hp[0] / (lowest.stats.hp[1] + lowest.stats.hp[3]);
+					let animalHp = team[i].stats.hp[0] / (team[i].stats.hp[1] + team[i].stats.hp[3]);
+					if (lowestHp > animalHp) {
+						lowest = team[i];
+					}
+				}
+			}
+		}
 		return lowest;
 	}
 
@@ -495,21 +695,65 @@ module.exports = class WeaponInterface {
 		return lowest;
 	}
 
+	static hasBuff(animal, buffId) {
+		for (let i in animal.buffs) {
+			if (animal.buffs[i].id === buffId) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	static hasGoodBuff(animal) {
+		for (let i in animal.buffs) {
+			if (!animal.buffs[i].debuff) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	static hasBadBuff(animal) {
+		for (let i in animal.buffs) {
+			if (animal.buffs[i].debuff) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	static hasExcludeBuffs(animal, buffIds) {
+		for (let i in animal.buffs) {
+			if (buffIds.includes(animal.buffs[i].id)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	/* Gets a dead animal */
 	static getDead(team) {
 		for (let i = 0; i < team.length; i++) if (team[i].stats.hp[0] <= 0) return team[i];
 	}
 
 	/* Check if the animal is at max or higher health */
-	static isMaxHp(animal) {
+	static isMaxHp(animal, { overheal } = {}) {
 		let hp = animal.stats.hp;
-		return hp[0] >= hp[1] + hp[3];
+		let max = hp[1] + hp[3];
+		if (overheal) {
+			max *= 1.5;
+		}
+		return hp[0] + 1 >= max;
 	}
 
 	/* Check if the animal is at max or higher health */
-	static isMaxWp(animal) {
-		let wp = animal.stats.wp;
-		return wp[0] >= wp[1] + wp[3];
+	static isMaxWp(animal, { overreplenish } = {}) {
+		const wp = animal.stats.wp;
+		let max = wp[1] + wp[3];
+		if (overreplenish) {
+			max *= 1.5;
+		}
+		return wp[0] + 1 >= max;
 	}
 
 	/* Checks if the animal can attack or not */
@@ -539,6 +783,75 @@ module.exports = class WeaponInterface {
 	static resToPrettyPercent(res) {
 		res = WeaponInterface.resToPercent(res);
 		return Math.round(res * 100) + '%';
+	}
+
+	/** Saves weapon to the db and return uwid **/
+	async save(id) {
+		let wear = this.wear?.id || 0;
+
+		const weaponSql = `INSERT INTO user_weapon (uid, wid, stat, avg, rrcount, rrattempt, wear)
+				VALUES (${await global.getUid(id)}, ${this.id},'${this.sqlStat}',${
+			this.avgQuality
+		}, 0, 0, ${wear});`;
+
+		let result = await mysql.query(weaponSql);
+		let uwid = result.insertId;
+		if (!uwid) throw 'Could not save weapon!';
+		this.uwid = uwid;
+
+		let queryUid = [];
+		let passiveSql = '';
+		if (this.passives.length) {
+			passiveSql = 'INSERT INTO user_weapon_passive (uwid,pcount,wpid,stat) VALUES ';
+			for (let i = 0; i < this.passives.length; i++) {
+				let tempPassive = this.passives[i];
+				passiveSql += `(?,${i},${tempPassive.id},'${tempPassive.sqlStat}'),`;
+				queryUid.push(uwid);
+			}
+			passiveSql = `${passiveSql.slice(0, -1)};`;
+		}
+		let trackSql = '';
+		if (this.hasTT) {
+			trackSql = `INSERT INTO user_weapon_kills (uwid) VALUES (?);`;
+			queryUid.push(uwid);
+		}
+		if (queryUid.length) {
+			await mysql.query(passiveSql + trackSql, queryUid);
+		}
+		return uwid;
+	}
+
+	/** Update weapon in db **/
+	async update() {
+		// update rr count/attempt/wear
+		let sql = `UPDATE user_weapon
+				SET
+					stat = '${this.sqlStat}',
+					avg = ${this.avgQuality},
+					wear = ${this.wear.id},
+					rrattempt = ${this.rrAttempt},
+					rrcount = ${this.rrCount}
+				WHERE uwid = ${this.ruwid};`;
+		for (let i in this.passives) {
+			let passive = this.passives[i];
+			let stat = passive.sqlStat;
+			let wpid = passive.id;
+
+			sql += `INSERT INTO user_weapon_passive (uwid,pcount,wpid,stat) VALUES (${this.ruwid}, ${i}, ${wpid}, '${stat}')
+					ON DUPLICATE KEY UPDATE uwid = VALUES(uwid), pcount = VALUES(pcount), wpid = VALUES(wpid), stat = VALUES(stat);`;
+		}
+
+		let result = await mysql.query(sql);
+		for (let i in result) {
+			if (result[i].affectedRows <= 0) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	get shortenUWID() {
+		return weaponUtil.shortenUWID(this.uwid);
 	}
 
 	static get allPassives() {
@@ -574,6 +887,12 @@ module.exports = class WeaponInterface {
 	static get wpEmoji() {
 		return '<:wp:531620120976687114>';
 	}
+	static get prEmoji() {
+		return '<:pr:531616156222488606>';
+	}
+	static get mrEmoji() {
+		return '<:mr:531616156226945024>';
+	}
 	static get getID() {
 		return new this(null, null, true).id;
 	}
@@ -591,6 +910,67 @@ module.exports = class WeaponInterface {
 	}
 	static get getEmoji() {
 		return new this(null, null, true).defaultEmoji;
+	}
+	static getWear(wear) {
+		return wears[wear] || wears[0];
+	}
+	get wearName() {
+		return this.wear?.name;
+	}
+	get wearBuff() {
+		return this.wear?.buff || 0;
+	}
+	get hasTakedownTracker() {
+		return this.hasTT;
+	}
+	get fullName() {
+		let name = this.name;
+		if (this.wear?.buff) {
+			name = `${this.wearName} ${name}`;
+		}
+		if (this.hasTakedownTracker) {
+			name = `${name} [${global.toFancyNum(this.kills)}]`;
+		}
+		return name;
+	}
+
+	setWear(wear = 0) {
+		this.wear = WeaponInterface.getWear(wear);
+	}
+	setRandomWear() {
+		const rand = Math.random();
+		let chance = 0;
+		for (let key in wears) {
+			const wear = wears[key];
+			chance += wear.chance;
+			if (rand <= chance) {
+				this.wear = wear;
+				return;
+			}
+		}
+		// Default wear
+		this.wear = wears[1];
+	}
+
+	setRandomTT() {
+		const rand = Math.random();
+		this.hasTT = rand <= ttChance;
+	}
+
+	static setWeaponUtil(util) {
+		weaponUtil = util;
+	}
+
+	getBonusXPPassive() {
+		let bonus = 0;
+		for (let i in this.passives) {
+			const passive = this.passives[i];
+			// Knowledge passive
+			if (passive.id === 21) {
+				bonus += passive.stats[0] / 100;
+			}
+		}
+		return bonus;
 	}
 };
 
@@ -611,4 +991,9 @@ const weapons = {};
 for (let key in weaponDir) {
 	let weapon = weaponDir[key];
 	weapons[weapon.getID] = weapon;
+}
+const wears = {};
+for (let key in wearInfo) {
+	let wear = wearInfo[key];
+	wears[wear.id] = wear;
 }

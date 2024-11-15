@@ -6,7 +6,6 @@
  */
 
 const BuffInterface = require('../BuffInterface.js');
-const WeaponInterface = require('../WeaponInterface.js');
 const Logs = require('../util/logUtil.js');
 
 module.exports = class Mortality extends BuffInterface {
@@ -16,7 +15,7 @@ module.exports = class Mortality extends BuffInterface {
 		this.debuff = true;
 		this.emoji = '<:mortality:619458869730476042>';
 		this.statDesc = 'Decreases all healing for this animal by **?%**';
-		this.qualityList = [[30, 60]];
+		this.qualityList = [[45, 75]];
 	}
 
 	// Override
@@ -31,7 +30,7 @@ module.exports = class Mortality extends BuffInterface {
 		super.bind(animal, duration, tags);
 	}
 
-	postHealed(animal, healer, amount, tag) {
+	healed(animal, healer, amount, _tag) {
 		let logs = new Logs();
 
 		let dec = amount[0] * (this.stats[0] / 100);

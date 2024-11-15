@@ -5,17 +5,38 @@
  * For more information, see README.md and LICENSE
  */
 
-const blank = '<:blank:427371936482328596>';
-exports.alter = async function (p, user, text, type, setting) {
+const _blank = '<:blank:427371936482328596>';
+const battleUtil = require('../battle/util/battleUtil.js');
+
+exports.alter = async function (p, user, text, battleEvent) {
+	let type = {
+		turns: battleEvent.logs?.length || 0,
+		user: battleEvent.p.msg.author,
+		streak: battleEvent.player.streak,
+	};
+	const pXP = battleEvent.endResult.pXP;
+	if (pXP) {
+		type.xp = pXP.xp;
+		if (battleUtil.shouldStopStreak()) {
+			type.streak = battleEvent.player.streak;
+		} else if (pXP.resetStreak) {
+			type.streak = battleEvent.player.streak;
+		} else if (pXP.addStreak) {
+			if (pXP.bonus) {
+				type.xp += ` + ${pXP.bonus}`;
+			}
+			type.streak = battleEvent.player.streak + 1;
+		} else {
+			type.streak = battleEvent.player.streak;
+		}
+	}
 	const result = await checkDb(p, user.id, text, type);
 	if (result) return result;
 	switch (p.msg.channel.id) {
 		case '1054101525191995502':
-			return quincey(text, type, setting);
 		case '1056148694480715886':
-			return quincey(text, type, setting);
 		case '1056148656572596264':
-			return quincey(text, type, setting);
+			return quincey(text, type);
 	}
 	switch (user.id) {
 		case '176046069954641921':
@@ -105,7 +126,7 @@ async function checkDb(p, id, text, info) {
 			break;
 	}
 	const replacers = {
-		username: p.msg.author.username,
+		username: p.getName(),
 		discriminator: p.msg.author.discriminator,
 		blank: p.config.emoji.blank,
 		streak: info.streak,
@@ -119,22 +140,32 @@ async function checkDb(p, id, text, info) {
 	const result = (await p.query(sql))[0];
 	if (!result || !result.updated_at) return;
 
-	return {
+	let embed = {
 		description: text.description,
 		fields: text.fields,
-		image: { url: result.bottomImg || text.image?.url },
 		title: p.global.replacer(result.title, replacers),
 		color: result.color || 1,
-		footer: { text: p.global.replacer(result.footer, replacers) },
-		thumbnail: { url: result.sideImg },
-		author: {
+	};
+	if (result.sideImg) {
+		embed.thumbnail = { url: result.sideImg };
+	}
+	if (result.footer) {
+		embed.footer = { text: p.global.replacer(result.footer, replacers) };
+	}
+	if (result.bottomImg) {
+		embed.image = { url: result.bottomImg || text.image?.url };
+	}
+	if (result.author) {
+		embed.author = {
 			name: p.global.replacer(result.author, replacers),
 			icon_url: result.showAvatar ? p.msg.author.avatarURL : null,
-		},
-	};
+		};
+	}
+
+	return embed;
 }
 
-function crown(text, type) {
+function crown(text) {
 	text.thumbnail = {
 		url: 'http://cdn.discordapp.com/attachments/598115387158036500/615856437708455936/image0.gif',
 	};
@@ -144,7 +175,7 @@ function crown(text, type) {
 	return text;
 }
 
-function elsa(text, type) {
+function elsa(text) {
 	text.thumbnail = {
 		url: 'https://i.imgur.com/HovVT8A.gif',
 	};
@@ -156,7 +187,7 @@ function elsa(text, type) {
 	return text;
 }
 
-function rikudou(text, type) {
+function rikudou(text) {
 	text.thumbnail = {
 		url: 'https://cdn.discordapp.com/attachments/598318102307930114/620814063764766725/image0.gif',
 	};
@@ -165,7 +196,7 @@ function rikudou(text, type) {
 	return text;
 }
 
-function dalu(text, type) {
+function dalu(text) {
 	text.thumbnail = {
 		url: 'https://i.imgur.com/iks7lY3.gif',
 	};
@@ -174,7 +205,7 @@ function dalu(text, type) {
 	return text;
 }
 
-function kuma(text, type) {
+function kuma(text) {
 	text.thumbnail = {
 		url: 'https://cdn.discordapp.com/emojis/674153774088060957.png',
 	};
@@ -185,7 +216,7 @@ function kuma(text, type) {
 	return text;
 }
 
-function garcom(text, type) {
+function garcom(text) {
 	text.author.name = '전투를 시작합니다!';
 	text.thumbnail = {
 		url: 'https://cdn.discordapp.com/attachments/674765942445703198/676257154893873172/C8fHZTfVYAIaFOc.png',
@@ -193,7 +224,7 @@ function garcom(text, type) {
 	return text;
 }
 
-function alradio(text, type) {
+function alradio(text) {
 	text.author.name =
 		'...then he\'d broadcast his carnage all throughout Hell, just so everyone could witness his ability. Sinners started calling him, "The Radio Demon."';
 	text.thumbnail = {
@@ -211,8 +242,8 @@ function alradio(text, type) {
 }
 
 function valentine(text, opt) {
-	const star = '<a:star:759725222042927124>';
-	const sadcat = '<a:sadcat:759725223423115266>';
+	const _star = '<a:star:759725222042927124>';
+	const _sadcat = '<a:sadcat:759725223423115266>';
 	text.author.name = text.author.name.replace(
 		' goes into battle!',
 		"'s Sailors arrive to defend Planet Earth!"
@@ -295,7 +326,8 @@ function lanre(text, opt) {
 			break;
 		case 6381923:
 			text.color = 535886;
-			text.footer.text = `Waw, that was a strong enemy. Kanna is very sleepy, but you can eat her 100 chocolates before she wakes`;
+			text.footer.text =
+				'Waw, that was a strong enemy. Kanna is very sleepy, but you can eat her 100 chocolates before she wakes';
 			text.thumbnail = {
 				url: 'https://cdn.discordapp.com/attachments/696512326114869289/767336752988815380/470728420549197825_1.png',
 			};
@@ -579,7 +611,7 @@ function theGoldenPatrik1(text, opt) {
 	return text;
 }
 
-function lexx(text, opt) {
+function lexx(text) {
 	text.author.name = 'lexx takes one look and says: "Lets do this"';
 	text.thumbnail = {
 		url: 'https://cdn.discordapp.com/attachments/696878982758531152/838655892932395028/Roberto.png',
@@ -911,7 +943,10 @@ function estee(text, opt) {
 	return text;
 }
 
+/* eslint-disable-next-line */
 function quincey(text, opt, { friendlyBattle }) {
+	return text;
+	/*
 	if (!friendlyBattle) {
 		return text;
 	}
@@ -920,4 +955,5 @@ function quincey(text, opt, { friendlyBattle }) {
 	};
 	text.color = 2201331;
 	return text;
+	*/
 }

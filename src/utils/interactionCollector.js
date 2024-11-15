@@ -23,10 +23,13 @@ class InteractionCollector {
 		return iee;
 	}
 
-	interact({ member, message, data, id, token }) {
+	interact({ user, member, message, data, id, token, entitlements }) {
+		if (member) {
+			member.id = member.user.id;
+		}
 		const listener = this.listeners[message.id] || this.listeners[message.interaction?.id];
 		if (listener) {
-			listener.interact(data, member.user, id, token);
+			listener.interact(data, member || user, id, token, entitlements);
 		} else {
 			const url = `https://discord.com/api/v8/interactions/${id}/${token}/callback`;
 			const content = {
@@ -57,7 +60,7 @@ class InteractionEventEmitter extends EventEmitter {
 		return this.filter(componentName, user);
 	}
 
-	interact(component, user, id, token) {
+	interact(component, user, id, token, entitlements) {
 		if (!this.checkFilter(component.custom_id, user)) {
 			const url = `https://discord.com/api/v8/interactions/${id}/${token}/callback`;
 			const content = {
@@ -68,7 +71,6 @@ class InteractionEventEmitter extends EventEmitter {
 				type: 4,
 				data: content,
 			});
-			return;
 		}
 		if (this.ended) {
 			const url = `https://discord.com/api/v8/interactions/${id}/${token}/callback`;
@@ -80,7 +82,6 @@ class InteractionEventEmitter extends EventEmitter {
 				type: 4,
 				data: content,
 			});
-			return;
 		}
 
 		const url = `https://discord.com/api/v8/interactions/${id}/${token}/callback`;
@@ -89,13 +90,14 @@ class InteractionEventEmitter extends EventEmitter {
 				if (typeof content === 'string') {
 					content = { content };
 				}
-				if (content.embed) {
-					content.embeds = [content.embed];
-					delete content.embed;
+				const newContent = { ...content };
+				if (newContent.embed) {
+					newContent.embeds = [newContent.embed];
+					delete newContent.embed;
 				}
 				return axios.post(url, {
 					type: 7,
-					data: content,
+					data: newContent,
 				});
 			} else {
 				return axios.post(url, { type: 1 });
@@ -118,7 +120,7 @@ class InteractionEventEmitter extends EventEmitter {
 			});
 		}
 
-		this.emit('collect', component.custom_id, user, ack, err);
+		this.emit('collect', component.custom_id, user, ack, err, component.values, entitlements);
 
 		if (this.idleTimeout) {
 			clearTimeout(this.idle);

@@ -7,10 +7,10 @@
 
 const WeaponInterface = require('../WeaponInterface.js');
 
-exports.stats = function (animal, flags) {
+exports.stats = function (animal, level) {
 	/* Parse animal stats */
 	let lvl = this.toLvl(animal.xp);
-	if (flags && flags.level) lvl.lvl = flags.level;
+	if (level) lvl.lvl = level;
 	/* Parse base animal stat*/
 	let stats = this.parseStats(animal.animal, lvl.lvl);
 
@@ -76,11 +76,11 @@ exports.giveXP = function (pid, xp) {
 
 const barLength = 24;
 exports.bar = function (stats) {
-	bar = '';
+	let bar = '';
 	let hp = stats.hp[0] / (stats.hp[1] + stats.hp[3]);
 	hp = Math.ceil(barLength * hp);
 	if (hp < 0) hp = 0;
-	for (i = 0; i < barLength; i++) {
+	for (let i = 0; i < barLength; i++) {
 		if (i < hp) bar += '█';
 		else bar += '▁';
 	}
@@ -88,7 +88,7 @@ exports.bar = function (stats) {
 	let wp = stats.wp[0] / (stats.wp[1] + stats.wp[3]);
 	wp *= Math.ceil(barLength * wp);
 	if (wp < 0) wp = 0;
-	for (i = 0; i < barLength; i++) {
+	for (let i = 0; i < barLength; i++) {
 		if (i < wp) bar += '▰';
 		else bar += '▱';
 	}

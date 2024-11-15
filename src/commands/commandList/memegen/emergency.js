@@ -7,6 +7,7 @@
 
 const CommandInterface = require('../../CommandInterface.js');
 
+const commandGroups = require('../../../utils/commandGroups.js');
 const request = require('request');
 const Vibrant = require('node-vibrant');
 const rocketEmoji = '🚀';
@@ -26,6 +27,14 @@ module.exports = new CommandInterface({
 
 	group: ['memegeneration'],
 
+	appCommands: [
+		commandGroups.addOption('emergency', ['gen'], {
+			'name': 'emergency',
+			'description': 'Call an emergency meeting',
+			'type': 1,
+		}),
+	],
+
 	cooldown: 30000,
 	half: 100,
 	six: 500,
@@ -36,11 +45,10 @@ module.exports = new CommandInterface({
 			const uuid = await fetchImage(p, p.msg.author);
 			const url = `${process.env.GEN_HOST}/img/${uuid}.gif`;
 			const data = await p.DataResolver.urlToBuffer(url);
-			await p.send(
-				`${rocketEmoji} **| ${p.msg.author.username}** called an emergency meeting!`,
-				null,
-				{ file: data, name: 'eject.gif' }
-			);
+			await p.send(`${rocketEmoji} **| ${p.getName()}** called an emergency meeting!`, null, {
+				file: data,
+				name: 'eject.gif',
+			});
 		} catch (err) {
 			console.error(err);
 			p.errorMsg(', Failed to generate gif. Try again later.', 3000);
@@ -52,7 +60,7 @@ async function fetchImage(p, user) {
 	let handColor;
 	try {
 		let url = user.dynamicAvatarURL(null, 32);
-		palette = await Vibrant.from(url).getPalette();
+		let palette = await Vibrant.from(url).getPalette();
 		handColor = palette.Vibrant._rgb.join(',');
 	} catch (err) {
 		console.error(err);
@@ -67,7 +75,7 @@ async function fetchImage(p, user) {
 
 	return new Promise((resolve, reject) => {
 		try {
-			let req = request(
+			request(
 				{
 					method: 'POST',
 					uri: `${process.env.GEN_API_HOST}/emergency`,

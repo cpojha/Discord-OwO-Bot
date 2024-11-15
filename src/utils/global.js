@@ -31,14 +31,11 @@ try {
 }
 filter2.removeWords(goodwords);
 const namor = require('namor');
-const mysql = require('./../botHandlers/mysqlHandler.js');
-var animalunicode = {};
-var commands = {};
-var animals = {};
-var ranks = {};
-var rankAlias = {};
-var client, con, animaljson, main;
-var totalShards, sharders;
+const animalInfo = require('./animalInfoUtil.js');
+const cacheUtil = require('./cacheUtil.js');
+let client, main;
+let totalShards;
+let clusterShards = 'n/a';
 
 /**
  * Checks if its an integer
@@ -54,7 +51,7 @@ const isInt = (exports.isInt = function (value) {
  */
 exports.getids = function (members) {
 	let result = '';
-	members.forEach(function (ele, key, map) {
+	members.forEach(function (ele, key) {
 		result += key + ',';
 	});
 	return result.slice(0, -1);
@@ -91,96 +88,35 @@ exports.parseID = function (id) {
 exports.init = function (bot) {
 	main = bot;
 	client = bot.bot;
-	con = bot.mysql.con;
-	animaljson = bot.animals;
-
-	var animallist = animaljson['list'];
-
-	//Make nickname alias
-	for (var key in animallist) {
-		var alt = animallist[key].alt;
-		animals[animallist[key].value] = key;
-		animals[animallist[key].value.toLowerCase()] = key;
-		animals[key] = key;
-		animals[key.toLowerCase()] = key;
-		for (i in alt) {
-			animals[alt[i]] = key;
-			animals[alt[i].toLowerCase()] = key;
+	let lowestShard = Number.MAX_SAFE_INTEGER;
+	let highestShard = -1;
+	bot.bot.shards.forEach((val) => {
+		const id = val.id;
+		if (id < lowestShard) {
+			lowestShard = id;
 		}
-	}
-
-	//to unicode
-	for (key in animallist) {
-		if (animallist[key].uni != undefined)
-			animalunicode[animallist[key].value] = animallist[key].uni;
-	}
-
-	//other info to animaljson
-	for (key in animaljson.ranks) {
-		ranks[key] = {};
-		var animalRank = [];
-		for (var i = 1; i < animaljson[key].length; i++) {
-			var name = animals[animaljson[key][i]];
-			try {
-				animalRank.push(animaljson[key][i]);
-				animaljson.list[name].rank = key;
-				animaljson.list[name].price = animaljson.price[key];
-				animaljson.list[name].points = animaljson.points[key];
-				animaljson.list[name].essence = animaljson.essence[key];
-			} catch (err) {
-				console.error(err);
-				console.error(animaljson[key][i]);
-			}
+		if (id > highestShard) {
+			highestShard = id;
 		}
-		ranks[key].animals = animalRank;
-		ranks[key].price = animaljson.price[key];
-		ranks[key].points = animaljson.points[key];
-		ranks[key].essence = animaljson.essence[key];
-		ranks[key].emoji = animaljson.ranks[key];
-		ranks[key].rank = key;
-	}
-
-	for (key in animaljson.alias) {
-		rankAlias[key] = key;
-		for (var i = 0; i < animaljson.alias[key].length; i++) {
-			rankAlias[animaljson.alias[key][i]] = key;
-		}
-	}
+	});
+	clusterShards = `${lowestShard} - ${highestShard}`;
 };
 
-/**
- * Checks if its a valid animal
- */
-exports.validAnimal = function (animal) {
-	if (animal != undefined) animal = animal.toLowerCase();
-	var ranimal = animaljson.list[animals[animal]];
-	if (ranimal) ranimal['name'] = animals[animal];
-	return ranimal;
+exports.validAnimal = animalInfo.getAnimal;
+exports.validRank = animalInfo.getRank;
+exports.getAllRanks = animalInfo.getRanks;
+exports.unicodeAnimal = function (name) {
+	return name;
 };
 
-exports.validRank = function (rank) {
-	if (rank) rank.toLowerCase();
-	rank = rankAlias[rank];
-	return ranks[rank];
-};
-
-exports.getAllRanks = function () {
-	return ranks;
-};
-
-/**
- * Changes animal to unicode
- */
-exports.unicodeAnimal = function (animal) {
-	var unicode = animalunicode[animal];
-	return unicode == undefined ? animal : unicode;
+exports.getShardString = function () {
+	return clusterShards;
 };
 
 exports.toSmallNum = function (count, digits) {
 	let result = '';
-	let num = count;
 	if (!digits) digits = count.toString().length;
-	for (i = 0; i < digits; i++) {
+	for (let i = 0; i < digits; i++) {
 		let digit = count % 10;
 		count = Math.trunc(count / 10);
 		result = numbers[digit] + result;
@@ -189,7 +125,7 @@ exports.toSmallNum = function (count, digits) {
 };
 
 exports.toFancyNum = function (num) {
-	var parts = num.toString().split('.');
+	let parts = num.toString().split('.');
 	parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 	return parts.join('.');
 };
@@ -224,7 +160,7 @@ exports.getRoleColor = function (member) {
 exports.getTotalShardCount = function () {
 	if (totalShards) return totalShards;
 	return new Promise((resolve, reject) => {
-		let req = request(
+		request(
 			{
 				method: 'GET',
 				uri: process.env.SHARDER_HOST + '/totalShards',
@@ -237,7 +173,6 @@ exports.getTotalShardCount = function () {
 				if (res.statusCode == 200) {
 					body = JSON.parse(body);
 					totalShards = body.totalShards;
-					sharders = body.sharders;
 					resolve(totalShards);
 				} else {
 					reject();
@@ -286,7 +221,7 @@ exports.cleanString = function (string) {
 };
 
 exports.isEmoji = function (string) {
-	return /^<a?:[\w]+:[0-9]+>$/gi.test(string.trim());
+	return /^<a?:[\w]+:[0-9]+>$/gi.test(string?.trim());
 };
 
 exports.parseTime = function (diff) {
@@ -312,15 +247,17 @@ exports.parseTime = function (diff) {
 
 /* gets uid from discord id */
 exports.getUid = async function (id) {
-	id = BigInt(id);
-	let sql = `SELECT uid FROM user where id = ?;`;
-	let result = await mysql.query(sql, id);
+	return cacheUtil.getUid(id);
+};
 
-	if (result[0]?.uid) return result[0].uid;
-
-	sql = `INSERT INTO user (id, count) VALUES (?, 0);`;
-	result = await mysql.query(sql, id);
-	return result.insertId;
+exports.getUserUid = async function (user) {
+	if (user.uid) {
+		return user.uid;
+	} else {
+		const uid = await this.getUid(user.id);
+		user.uid = uid;
+		return uid;
+	}
 };
 
 exports.getEmojiURL = function (emoji) {
@@ -332,6 +269,16 @@ exports.getEmojiURL = function (emoji) {
 	return `https://cdn.discordapp.com/emojis/${id}.${format}`;
 };
 
+exports.parseEmoji = function (emoji) {
+	let id = emoji.match(/:[0-9]+>$/gi);
+	if (!id || !id[0]) return;
+	id = id[0].match(/[0-9]+/gi)[0];
+	let name = emoji.match(/:[\w]+:/gi);
+	if (!name || !name[0]) return;
+	name = name[0].slice(1, -1);
+	return { id, name };
+};
+
 exports.replacer = function (text, replacer) {
 	if (!text) return text;
 	for (let key in replacer) {
@@ -340,11 +287,11 @@ exports.replacer = function (text, replacer) {
 	return text;
 };
 
-exports.toDiscordTimestamp = function (date) {
+exports.toDiscordTimestamp = function (date, flag = 'R') {
 	if (typeof date === 'number' || isInt(date)) {
-		return `<t:${Math.trunc(+date / 1000)}:R>`;
+		return `<t:${Math.trunc(+date / 1000)}:${flag}>`;
 	}
-	return `<t:${Math.trunc(date.valueOf() / 1000)}:R>`;
+	return `<t:${Math.trunc(date.valueOf() / 1000)}:${flag}>`;
 };
 
 exports.getChannelMessages = async function (channel, options, before, after, around) {
@@ -352,4 +299,122 @@ exports.getChannelMessages = async function (channel, options, before, after, ar
 	return msgs.filter((msg) => {
 		return !main.optOut[msg.author.id];
 	});
+};
+
+exports.getTimeUntil = function (date) {
+	let diff = date - Date.now();
+	if (diff < 0) {
+		return {
+			days: 0,
+			hours: 0,
+			minutes: 0,
+			seconds: 0,
+		};
+	}
+
+	diff = Math.trunc(diff / 1000);
+	let seconds = diff % 60;
+	diff = Math.trunc(diff / 60);
+	let minutes = diff % 60;
+	diff = Math.trunc(diff / 60);
+	let hours = diff % 24;
+	diff = Math.trunc(diff / 24);
+	let days = diff;
+
+	return { days, hours, minutes, seconds };
+};
+
+exports.toMySQL = function (date) {
+	return (
+		"'" +
+		date.getFullYear() +
+		'-' +
+		('00' + (date.getMonth() + 1)).slice(-2) +
+		'-' +
+		('00' + date.getDate()).slice(-2) +
+		' ' +
+		('00' + date.getHours()).slice(-2) +
+		':' +
+		('00' + date.getMinutes()).slice(-2) +
+		':' +
+		('00' + date.getSeconds()).slice(-2) +
+		"'"
+	);
+};
+
+exports.getA = function (text) {
+	text = text.replace(/\*/gi, '');
+	return ['a', 'e', 'i', 'o', 'u'].includes(text[0].toLowerCase()) ? 'an' : 'a';
+};
+
+exports.getName = function (user) {
+	return (
+		user?.nick ||
+		user?.globalname ||
+		user?.global_name ||
+		user?.user?.globalname ||
+		user?.user?.global_name ||
+		user?.username ||
+		user?.user?.username ||
+		'User'
+	);
+};
+
+exports.getUniqueName = function (user) {
+	user = user.user || user;
+	if (user.discriminator && user.discriminator !== '0') {
+		return `${user.username}#${user.discriminator}`;
+	} else {
+		return `@${user.username}`;
+	}
+};
+
+exports.getTag = function (user) {
+	const id = user?.id || user?.user?.id;
+	if (!id) return 'User';
+	return `<@${id}>`;
+};
+
+exports.delay = function (delay) {
+	return new Promise((resolve) => {
+		setTimeout(resolve, delay);
+	});
+};
+
+exports.selectRandom = function (array, total) {
+	const rand = 1 + Math.floor(Math.random() * total);
+	let temp = 0;
+	for (let i = 0; i <= array.length; i++) {
+		const item = array[i];
+		temp += item.chance;
+		if (rand <= temp) {
+			return item;
+		}
+	}
+};
+
+exports.getStealButton = async function (p, withComponent) {
+	const sql = `SELECT emoji_steal.guild FROM emoji_steal INNER JOIN user ON emoji_steal.uid = user.uid WHERE id = ${p.msg.author.id};`;
+	const canSteal = (await p.query(sql))[0]?.guild;
+	if (!canSteal) {
+		return;
+	}
+	const components = [
+		{
+			type: 1,
+			components: [
+				{
+					type: 2,
+					label: 'Steal',
+					style: 1,
+					custom_id: 'steal',
+					emoji: {
+						id: null,
+						name: p.config.emoji.steal,
+					},
+				},
+			],
+		},
+	];
+	return withComponent ? components : components[0].components;
 };

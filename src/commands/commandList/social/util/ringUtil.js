@@ -35,9 +35,9 @@ exports.buy = async function (p, id) {
 	}
 
 	// TODO neo4j
-	p.logger.decr(`cowoncy`, -1 * ring.price, { type: 'ring' }, p.msg);
+	p.logger.decr('cowoncy', -1 * ring.price, { type: 'ring' }, p.msg);
 	let an = p.global.isVowel(ring.name) ? 'n' : '';
-	let text = `${cart} **| ${p.msg.author.username}**, you bought a${an} ${ring.emoji} **${
+	let text = `${cart} **| ${p.getName()}**, you bought a${an} ${ring.emoji} **${
 		ring.name
 	}** for **${p.global.toFancyNum(ring.price)}** ${p.config.emoji.cowoncy}!`;
 	text = alterBuy.alter(p, text, {
@@ -89,7 +89,7 @@ exports.sell = async function (p, id) {
 	sql = `UPDATE cowoncy SET money = money + ${price} WHERE id = ${p.msg.author.id};`;
 	await p.query(sql);
 	// TODO neo4j
-	p.logger.incr(`cowoncy`, price, { type: 'ring' }, p.msg);
+	p.logger.incr('cowoncy', price, { type: 'ring' }, p.msg);
 	p.replyMsg(
 		sold,
 		', you sold a' +

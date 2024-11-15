@@ -54,7 +54,7 @@ module.exports = new CommandInterface({
 		let embed = {
 			author: {
 				icon_url: p.msg.author.avatarURL,
-				name: p.msg.author.username + ' wants to test their strength!',
+				name: p.getName() + ' wants to test their strength!',
 			},
 			color: p.config.embed_color,
 			description: poll,
@@ -67,7 +67,7 @@ module.exports = new CommandInterface({
 			time: 30000,
 		});
 
-		collector.on('collect', async function (emoji) {
+		collector.on('collect', async function (_emoji) {
 			collector.stop();
 			let rand = Math.random();
 			if (geist == p.msg.author.id) {
@@ -84,7 +84,7 @@ module.exports = new CommandInterface({
 function generatePoll(percent, msgs) {
 	let result = '\\🔔\n';
 	let hitSize = Math.floor(percent * size);
-	count = 1;
+	let count = 1;
 	if (percent != 0 && !hitSize) hitSize = 1;
 
 	for (let i = 0; i < size - hitSize; i++) {

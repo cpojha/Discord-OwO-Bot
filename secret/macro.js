@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 // Checks for macros
 exports.check = async function (p, command, { diff, now }) {
 	return true;

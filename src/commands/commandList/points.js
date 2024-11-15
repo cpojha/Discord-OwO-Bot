@@ -7,8 +7,6 @@
 
 const CommandInterface = require('../CommandInterface.js');
 
-const levels = require('../../utils/levels.js');
-
 module.exports = new CommandInterface({
 	alias: ['points'],
 
@@ -39,7 +37,7 @@ module.exports = new CommandInterface({
 
 		await p.query(sql);
 		p.quest('owo');
-		p.logger.incr(`cowoncy`, 2, { type: 'points' }, p.msg);
-		p.logger.incr(`points`, 1, {}, p.msg);
+		p.logger.incr('cowoncy', 2, { type: 'points' }, p.msg);
+		p.logger.incr('points', 1, {}, p.msg);
 	},
 });

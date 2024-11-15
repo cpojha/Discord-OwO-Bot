@@ -8,9 +8,7 @@
 const CommandInterface = require('../../CommandInterface.js');
 
 const teams = require('./teams.js');
-const global = require('../../../utils/global.js');
 const teamUtil = require('./util/teamUtil.js');
-const battleUtil = require('./util/battleUtil.js');
 const battleFriendUtil = require('./util/battleFriendUtil.js');
 
 module.exports = new CommandInterface({
@@ -50,13 +48,7 @@ module.exports = new CommandInterface({
 			subcommand == 'a' ||
 			subcommand == 'replace'
 		) {
-			/* No changing while in battle */
-			if (await battleUtil.inBattle(p))
-				p.errorMsg(
-					", You cannot change your team while you're in battle! Please finish your `owo battle`!",
-					3000
-				);
-			else if (await battleFriendUtil.inBattle(p))
+			if (await battleFriendUtil.inBattle(p))
 				p.errorMsg(
 					', You cannot change your team while you have a pending battle! Use `owo db` to decline',
 					3000
@@ -65,13 +57,7 @@ module.exports = new CommandInterface({
 
 			/* Remove a team member */
 		} else if (subcommand == 'remove' || subcommand == 'delete' || subcommand == 'd') {
-			/* No changing while in battle */
-			if (await battleUtil.inBattle(p))
-				p.errorMsg(
-					", You cannot change your team while you're in battle! Please finish your `owo battle`!",
-					3000
-				);
-			else if (await battleFriendUtil.inBattle(p))
+			if (await battleFriendUtil.inBattle(p))
 				p.errorMsg(
 					', You cannot change your team while you have a pending battle! Use `owo db` to decline',
 					3000
@@ -90,12 +76,13 @@ module.exports = new CommandInterface({
 	},
 });
 
+/* eslint-disable-next-line */
 async function displayTeam(p) {
 	try {
 		await teamUtil.displayTeam(p);
 	} catch (err) {
 		console.error(err);
-		p.errorMsg(`, something went wrong... Try again!`, 5000);
+		p.errorMsg(', something went wrong... Try again!', 5000);
 	}
 }
 
@@ -129,7 +116,7 @@ async function add(p) {
 		await teamUtil.addMember(p, animal, pos);
 	} catch (err) {
 		console.error(err);
-		p.errorMsg(`, something went wrong... Try again!`, 5000);
+		p.errorMsg(', something went wrong... Try again!', 5000);
 	}
 }
 
@@ -162,7 +149,7 @@ async function remove(p) {
 		await teamUtil.removeMember(p, remove);
 	} catch (err) {
 		console.error(err);
-		p.errorMsg(`, something went wrong... Try again!`, 5000);
+		p.errorMsg(', something went wrong... Try again!', 5000);
 	}
 }
 
@@ -183,6 +170,6 @@ async function rename(p) {
 		await teamUtil.renameTeam(p, name);
 	} catch (err) {
 		console.error(err);
-		p.errorMsg(`, something went wrong... Try again!`, 5000);
+		p.errorMsg(', something went wrong... Try again!', 5000);
 	}
 }

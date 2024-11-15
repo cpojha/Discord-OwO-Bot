@@ -37,7 +37,7 @@ class Lxv extends Collectible {
 		this.init();
 	}
 
-	async getDisplayMsg(p, args, msgOverride) {
+	async getDisplayMsg(p, args, _msgOverride) {
 		let reset = await p.redis.hget(`data_${p.msg.author.id}`, `${this.data}_reset`);
 		let afterMid = p.dateUtil.afterMidnight(reset);
 		let msg =
@@ -47,16 +47,16 @@ class Lxv extends Collectible {
 				msg =
 					"<:846997443278274610:1055044684382208010> **| ?user?**, you currently have ?count? ?emoji? lxv. Don't forget to take care of them!\n<:1039236830022868992:1055044688979185664> **|** Hedge has collected ?mergeCount? **lovesick** for you!";
 			} else {
-				if (args.mergeCount > 0) {
-					const result = await p.redis.hincrby(`data_${p.msg.author.id}`, this.manualMergeData, -1);
-					args.mergeCount -= 1;
+				if (args.count > 0) {
+					await p.redis.hincrby(`data_${p.msg.author.id}`, this.data, -1);
+					args.count -= 1;
 					await p.redis.hset(`data_${p.msg.author.id}`, `${this.data}_reset`, afterMid.now);
 					msg =
 						"<:846997478246318080:1055044685153972225> **| ?user?**, you currently have ?count? ?emoji? lxv. One of them ran away because you didn't take care of it..." +
 						'\n<:1039236830022868992:1055044688979185664> **|** Hedge has collected ?mergeCount? **lovesick** for you!';
 				} else {
 					msg =
-						'<:846997443278274610:1055044684382208010> **| ?user?**, you currently have ?count? ?emoji? lxv.' +
+						"<:846997443278274610:1055044684382208010> **| ?user?**, you currently have ?count? ?emoji? lxv. Don't forget to take care of them!" +
 						'\n<:1039236830022868992:1055044688979185664> **|** Hedge has collected ?mergeCount? **lovesick** for you!';
 				}
 			}
@@ -65,9 +65,9 @@ class Lxv extends Collectible {
 	}
 
 	async manualMerge(p) {
-		const { redis, msg, config } = p;
+		const { redis, msg } = p;
 		let count = (await p.redis.hget(`data_${p.msg.author.id}`, this.data)) || 0;
-		if (!count) {
+		if (parseInt(count) <= 0) {
 			p.errorMsg(', You need at least one lxv to pet the hedge!');
 			return;
 		}
@@ -86,11 +86,11 @@ class Lxv extends Collectible {
 			return;
 		}
 
-		if (Math.random() < 0.05) {
+		if (Math.random() < 0.03) {
 			super.manualMerge(p);
 		} else {
 			p.send(
-				`${this.emoji} **| ${p.msg.author.username}** pats the hedge. But it seems to have made them mad...` +
+				`${this.emoji} **| ${p.getName()}** pats the hedge. But it seems to have made them mad...` +
 					'\n<:826054135518199818:1055044683396562984> **|** They are very angry now. Mind your fingers!'
 			);
 		}

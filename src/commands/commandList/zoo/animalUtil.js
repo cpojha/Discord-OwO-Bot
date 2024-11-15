@@ -5,14 +5,11 @@
  * For more information, see README.md and LICENSE
  */
 
-let animals;
-try {
-	animals = require('../../../../../tokens/owo-animals.json');
-} catch (err) {
-	console.error('Could not find owo-animals.json, attempting to use ./secret file...');
-	animals = require('../../../../secret/owo-animals.json');
-	console.log('Found owo-animals.json file in secret folder!');
-}
+const mysql = require('../../../botHandlers/mysqlHandler.js');
+const global = require('../../../utils/global.js');
+const animals = require('../../../utils/animalInfoUtil.js');
+const eventUtil = require('../../../utils/eventUtil.js');
+const cacheUtil = require('../../../utils/cacheUtil.js');
 
 let enableDistortedTier = true;
 setTimeout(() => {
@@ -20,150 +17,174 @@ setTimeout(() => {
 	enableDistortedTier = false;
 }, 21600000);
 
-const specialRatesManual = animals.specialRates;
-let specialRatesHuntbot = [];
-let specialPercentManual = 0;
-let specialPercentHuntbot = 0;
-if (specialRatesManual && specialRatesManual.length) {
-	for (let i in specialRatesManual) {
-		specialPercentManual += specialRatesManual[i].rate;
-		specialRatesHuntbot[i] = { ...specialRatesManual[i] };
-		specialRatesHuntbot[i].rate = specialRatesHuntbot[i].rate / 4;
-		specialPercentHuntbot += specialRatesHuntbot[i].rate;
+function randAnimal(opts = {}) {
+	const event = getEventAnimals();
+	opts.event = event;
+	const rarities = getRarities(opts);
+
+	const rankName = getRandomRank(rarities);
+	const rank = animals.getRank(rankName);
+	let animalName;
+	if (rankName !== 'special') {
+		animalName = rank.animals[Math.floor(Math.random() * rank.animals.length)];
+	} else {
+		animalName = getRandomEventAnimal(event);
+	}
+
+	return animals.getAnimal(animalName);
+}
+
+function getRandomEventAnimal(event) {
+	const totalRarity = event.reduce((sum, val) => sum + val.rarity, 0);
+	const rand = Math.random() * totalRarity;
+
+	let total = 0;
+	for (let i in event) {
+		total += event[i].rarity;
+		if (rand < total) {
+			return event[i].animal;
+		}
 	}
 }
 
-/**
- * Picks a random animal from secret json file
- */
-exports.randAnimal = function ({ patreon, gem, lucky, huntbot, manual } = {}) {
-	let rand = Math.random();
-	let result = [];
+function getRandomRank(rarities) {
+	const totalRarity = Object.values(rarities).reduce((sum, val) => sum + val, 0);
+	const rand = Math.random() * totalRarity;
 
-	/* Calculate percentage */
-	const specialRates = huntbot ? specialRatesHuntbot : specialRatesManual;
-	const specialPercent = huntbot ? specialPercentHuntbot : specialPercentManual;
-	// If user has patreon
-	let patreonPercent = animals.cpatreon[0] + animals.patreon[0];
-	if (!patreon) patreonPercent = 0;
-	// If user is using gems
-	let gemPercent = animals.gem[0];
-	if (!gem) gemPercent = 0;
-	else if (lucky) gemPercent += gemPercent * lucky.amount;
-	// If bot has restarted
-	let distortedPercent = enableDistortedTier && manual ? animals.distorted[0] : 0;
-	if (distortedPercent) {
-		distortedPercent += specialPercent + patreonPercent;
-		if (huntbot) distortedPercent += huntbot;
-		if (gemPercent) distortedPercent += gemPercent;
+	let total = 0;
+	for (let rank in rarities) {
+		total += rarities[rank];
+		if (rand < total) {
+			return rank;
+		}
 	}
+}
 
-	if (patreonPercent && rand < patreonPercent) {
-		if (rand < animals.cpatreon[0]) {
-			rand = Math.ceil(Math.random() * (animals.cpatreon.length - 1));
-			result.push('**patreon** ' + animals.ranks.cpatreon);
-			result.push(animals.cpatreon[rand]);
-			result.push('cpatreon');
-			result.push(2000);
+function getRarities(opts) {
+	const rarity = {};
+	const ranks = animals.getRanks();
+	for (let key in ranks) {
+		const rank = ranks[key];
+		if (!rank.conditional) {
+			rarity[key] = rank.rarity;
 		} else {
-			rand = Math.ceil(Math.random() * (animals.patreon.length - 1));
-			result.push('**patreon** ' + animals.ranks.patreon);
-			result.push(animals.patreon[rand]);
-			result.push('patreon');
-			result.push(400);
+			rarity[key] = 0;
 		}
-	} else if (specialPercent && rand < specialPercent + patreonPercent) {
-		let tempRate = patreonPercent;
-		let found = false;
-		for (let i in specialRates) {
-			tempRate += specialRates[i].rate;
-			if (!found && rand <= tempRate) {
-				found = true;
-				result.push('**special** ' + animals.ranks.special);
-				result.push(specialRates[i].animal);
-				result.push('special');
-				result.push(500);
-			}
-		}
-	} else if (huntbot && rand < huntbot + specialPercent + patreonPercent) {
-		rand = Math.ceil(Math.random() * (animals.bot.length - 1));
-		result.push('**bot** ' + animals.ranks.bot);
-		result.push(animals.bot[rand]);
-		result.push('bot');
-		result.push(100000);
-	} else if (gemPercent && rand < gemPercent + specialPercent + patreonPercent) {
-		rand = Math.ceil(Math.random() * (animals.gem.length - 1));
-		result.push('**gem** ' + animals.ranks.gem);
-		result.push(animals.gem[rand]);
-		result.push('gem');
-		result.push(5000);
-	} else if (rand < distortedPercent) {
-		rand = Math.ceil(Math.random() * (animals.distorted.length - 1));
-		result.push('**distorted** ' + animals.ranks.distorted);
-		result.push(animals.distorted[rand]);
-		result.push('distorted');
-		result.push(100000);
-	} else if (rand < animals.common[0]) {
-		rand = Math.ceil(Math.random() * (animals.common.length - 1));
-		result.push('**common** ' + animals.ranks.common);
-		result.push(animals.common[rand]);
-		result.push('common');
-		result.push(1);
-	} else if (rand < animals.uncommon[0]) {
-		rand = Math.ceil(Math.random() * (animals.uncommon.length - 1));
-		result.push('**uncommon** ' + animals.ranks.uncommon);
-		result.push(animals.uncommon[rand]);
-		result.push('uncommon');
-		result.push(10);
-	} else if (rand < animals.rare[0]) {
-		rand = Math.ceil(Math.random() * (animals.rare.length - 1));
-		result.push('**rare** ' + animals.ranks.rare);
-		result.push(animals.rare[rand]);
-		result.push('rare');
-		result.push(20);
-	} else if (rand < animals.epic[0]) {
-		rand = Math.ceil(Math.random() * (animals.epic.length - 1));
-		result.push('**epic** ' + animals.ranks.epic);
-		result.push(animals.epic[rand]);
-		result.push('epic');
-		result.push(400);
-	} else if (rand < animals.mythical[0]) {
-		rand = Math.ceil(Math.random() * (animals.mythical.length - 1));
-		result.push('**mythic** ' + animals.ranks.mythical);
-		result.push(animals.mythical[rand]);
-		result.push('mythical');
-		result.push(1000);
-	} else if (rand < animals.legendary[0]) {
-		rand = Math.ceil(Math.random() * (animals.legendary.length - 1));
-		result.push('**legendary** ' + animals.ranks.legendary);
-		result.push(animals.legendary[rand]);
-		result.push('legendary');
-		result.push(2000);
-	} else if (rand < animals.fabled[0]) {
-		rand = Math.ceil(Math.random() * (animals.fabled.length - 1));
-		result.push('**fabled** ' + animals.ranks.fabled);
-		result.push(animals.fabled[rand]);
-		result.push('fabled');
-		result.push(100000);
-	} else {
-		rand = Math.ceil(Math.random() * (animals.hidden.length - 1));
-		result.push('**hidden** ' + animals.ranks.hidden);
-		result.push(animals.hidden[rand]);
-		result.push('hidden');
-		result.push(300000);
 	}
-	return result;
-};
 
-exports.toSmallNum = function (count, digits) {
-	let result = '';
-	let num = count;
-	for (i = 0; i < digits; i++) {
-		let digit = count % 10;
-		count = Math.trunc(count / 10);
-		result = animals.numbers[digit] + result;
+	if (opts.patreon) {
+		const patreon = animals.getRank('patreon');
+		rarity[patreon.id] = patreon.rarity;
+		rarity['common'] -= patreon.rarity;
+		const cpatreon = animals.getRank('cpatreon');
+		rarity[cpatreon.id] = cpatreon.rarity;
+		rarity['common'] -= cpatreon.rarity;
 	}
-	return result;
+
+	if (opts.gem) {
+		const gem = animals.getRank('gem');
+		let gemRarity = gem.rarity;
+		if (opts.lucky) {
+			gemRarity *= opts.lucky.amount;
+		}
+		rarity[gem.id] = gemRarity;
+		rarity['common'] -= gemRarity;
+	}
+
+	if (enableDistortedTier && opts.manual) {
+		const distorted = animals.getRank('distorted');
+		rarity[distorted.id] = distorted.rarity;
+		rarity['common'] -= distorted.rarity;
+	}
+
+	if (opts.huntbot) {
+		const bot = animals.getRank('bot');
+		rarity[bot.id] = opts.huntbot;
+		rarity['common'] -= opts.huntbot;
+	}
+
+	if (opts.event) {
+		let specialRarity = opts.event.reduce((sum, val) => sum + val.rarity, 0);
+		if (opts.special) {
+			specialRarity *= 2;
+		}
+		if (opts.huntbot) {
+			specialRarity /= 4;
+		}
+		const special = animals.getRank('special');
+		rarity[special.id] = specialRarity;
+		rarity['common'] -= specialRarity;
+	}
+
+	return rarity;
+}
+
+function getEventAnimals() {
+	const event = eventUtil.getCurrentActive();
+	if (!event || !event.animals) {
+		return [];
+	}
+
+	const eventAnimals = [];
+	event.animals.forEach((animal) => {
+		eventAnimals.push({
+			animal: animal.animal,
+			rarity: getEventRarity(animal, event),
+		});
+	});
+
+	return eventAnimals;
+}
+
+function getEventRarity(animal, event) {
+	const start = new Date(event.start).getTime();
+	const end = new Date(event.end).getTime();
+	const diff = end - start;
+	let rate = animal.minRate;
+	const now = Date.now();
+
+	if (end < now || now < start) {
+		return 0;
+	}
+
+	const percentDiff = (now - start) / diff;
+	rate += (animal.maxRate - animal.minRate) * percentDiff;
+	return rate;
+}
+
+exports.getMultipleAnimals = async function (count, user, opt) {
+	const total = {};
+	let xp = 0;
+	for (let i = 0; i < count; i++) {
+		let animal = randAnimal(opt);
+		let rank = animals.getRank(animal.rank);
+		xp += rank.xp;
+		if (total[animal.value]) {
+			total[animal.value].count++;
+			total[animal.value].totalXp += rank.xp;
+		} else {
+			total[animal.value] = {
+				count: 1,
+				rank: rank.id,
+				value: animal.value,
+				text: `**${rank.id}** ${rank.emoji}`,
+				totalXp: rank.xp,
+				singleXp: rank.xp,
+				rankSort: rank.order,
+			};
+		}
+	}
+
+	const ordered = sortAnimals(total);
+	const { sql, typeCount } = await createSql(ordered, user);
+
+	return {
+		animals: total,
+		ordered: ordered,
+		animalSql: sql,
+		xp: xp,
+		typeCount,
+	};
 };
 
 exports.zooScore = function (zoo) {
@@ -184,3 +205,97 @@ exports.zooScore = function (zoo) {
 	text += 'C-' + zoo.common;
 	return text;
 };
+
+exports.hasSpecials = function () {
+	const event = eventUtil.getCurrentActive();
+	return !!event?.animals;
+};
+
+exports.getPid = async function (id, pet) {
+	const uid = await global.getUid(id);
+	let sql;
+	if (global.isInt(pet) && parseInt(pet) < 10) {
+		sql = `SELECT pt_ani.pid FROM pet_team pt
+					LEFT JOIN pet_team_animal pt_ani
+						ON pt.pgid = pt_ani.pgid
+					LEFT JOIN pet_team_active pt_act
+						ON pt.pgid = pt_act.pgid
+				WHERE pt.uid = ${uid} AND pos = ${pet}
+				ORDER BY pt_act.pgid DESC, pt.pgid ASC LIMIT 1;`;
+	} else {
+		sql = `SELECT pid FROM animal WHERE name = '${pet.value}' AND id = ${id}`;
+	}
+	const result = await mysql.query(sql);
+	return result[0]?.pid;
+};
+
+/**
+ * Sorts an array of animals by rank then alphabetical order
+ */
+function sortAnimals(animals) {
+	const animalList = [];
+	for (let value in animals) {
+		animalList.push(animals[value]);
+	}
+	animalList.sort((a, b) => {
+		if (a.rankSort < b.rankSort) {
+			return -1;
+		} else if (a.rankSort > b.rankSort) {
+			return 1;
+		} else if (a.value < b.value) {
+			return -1;
+		} else if (a.value > b.value) {
+			return 1;
+		} else {
+			return 0;
+		}
+	});
+	return animalList;
+}
+
+async function createSql(orderedAnimal, user) {
+	let animalSql = [];
+	let animalCountSql = {};
+
+	let animalCase = '( CASE\n';
+	let animals = [];
+	orderedAnimal.forEach((animal) => {
+		animalSql.push(`(${user.id}, '${animal.value}', ${animal.count}, ${animal.count})`);
+		animals.push(`'${animal.value}'`);
+		animalCase += `WHEN name = '${animal.value}' THEN ${animal.count}\n`;
+		if (!animalCountSql[animal.rank])
+			animalCountSql[animal.rank] = {
+				rank: animal.rank,
+				count: 0,
+			};
+		animalCountSql[animal.rank].count += animal.count;
+	});
+	animalCountSql = Object.values(animalCountSql);
+	animalCase += 'ELSE 0 END)';
+
+	let sql = `UPDATE animal SET 
+			count = count + ${animalCase}, totalcount = totalcount + ${animalCase}
+			WHERE id = ${user.id} AND name in (${animals.join(',')});`;
+	sql += `INSERT INTO animal_count (id, ${animalCountSql
+		.map((animalCount) => animalCount.rank)
+		.join(',')})
+			VALUES (${user.id}, ${animalCountSql.map((animalCount) => animalCount.count).join(',')})
+			ON DUPLICATE KEY UPDATE
+				${animalCountSql
+					.map((animalCount) => {
+						return `${animalCount.rank} = ${animalCount.rank} + ${animalCount.count}`;
+					})
+					.join(',')};
+			`;
+	await checkDbInsert(user.id, orderedAnimal);
+	return {
+		sql,
+		typeCount: animalCountSql,
+	};
+}
+
+async function checkDbInsert(id, animals) {
+	for (let i in animals) {
+		await cacheUtil.insertAnimal(id, animals[i].value);
+	}
+}

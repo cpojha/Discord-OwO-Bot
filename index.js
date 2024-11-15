@@ -19,25 +19,21 @@ const config = require('./src/data/config.json');
 
 // Grab tokens and secret files
 const debug = config.debug;
-if (!debug) var tracer = require('dd-trace').init();
+if (!debug) require('dd-trace').init();
 
+const rateLimitUtil = require('./utils/rateLimitUtil.js');
 const request = require('./utils/request.js');
 // Eris-Sharder
 const Sharder = require('eris-sharder').Master;
 var result, shards, firstShardID, lastShardID;
-
-// Helper files
-if (require('cluster').isMaster) {
-	const global = require('./utils/global.js');
-	const RamCheck = new (require('./utils/ramCheck.js'))(global);
-}
+const cluster = require('cluster');
 
 let clusters = 60;
 
 (async () => {
 	try {
 		//determine how many shards we will need for this manager
-		if (!debug && require('cluster').isMaster) {
+		if (!debug && cluster.isMaster) {
 			result = await request.fetchInit();
 			console.log(result);
 			shards = parseInt(result['shards']);
@@ -45,10 +41,10 @@ let clusters = 60;
 			lastShardID = parseInt(result['lastShardID']);
 		}
 		if (debug) {
-			shards = 2;
+			shards = 1;
 			firstShardID = 0;
-			lastShardID = 1;
-			clusters = 2;
+			lastShardID = 0;
+			clusters = 1;
 		}
 
 		console.log(
@@ -65,6 +61,10 @@ let clusters = 60;
 			firstShardID,
 			lastShardID,
 		});
+
+		if (cluster.isMaster) {
+			rateLimitUtil.init(sharder.bucket, debug);
+		}
 	} catch (e) {
 		console.error('Failed to start eris sharder');
 		console.error(e);

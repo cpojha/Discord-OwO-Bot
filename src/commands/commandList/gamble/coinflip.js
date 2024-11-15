@@ -8,7 +8,7 @@
 const CommandInterface = require('../../CommandInterface.js');
 const altercoinflip = require('../patreon/altercoinflip.js');
 
-const maxBet = 150000;
+const maxBet = 250000;
 const cowoncy = '<:cowoncy:416043450337853441>';
 const spin = '<a:coinflip:436677458339823636>';
 const heads = '<:head:436677933977960478>';
@@ -38,7 +38,6 @@ module.exports = new CommandInterface({
 	execute: async function (p) {
 		let global = p.global,
 			msg = p.msg,
-			con = p.con,
 			args = p.args;
 
 		//Syntax Check
@@ -84,7 +83,7 @@ module.exports = new CommandInterface({
 		let sql = 'SELECT money FROM cowoncy WHERE id = ' + msg.author.id + ';';
 		let result = await p.query(sql);
 		if (result[0] == undefined || result[0].money == 0 || (bet != 'all' && result[0].money < bet)) {
-			p.send('**🚫 | ' + msg.author.username + "**, You don't have enough cowoncy!", 3000);
+			p.send('**🚫 | ' + p.getName() + "**, You don't have enough cowoncy!", 3000);
 			return;
 		} else {
 			if (bet == 'all') bet = result[0].money;
@@ -114,15 +113,15 @@ module.exports = new CommandInterface({
 				';';
 			result = await p.query(sql);
 			if (win) {
-				p.logger.incr(`cowoncy`, bet, { type: 'coinflip' }, p.msg);
-				p.logger.incr(`gamble`, 1, { type: 'coinflip' }, p.msg);
+				p.logger.incr('cowoncy', bet, { type: 'coinflip' }, p.msg);
+				p.logger.incr('gamble', 1, { type: 'coinflip' }, p.msg);
 			} else {
-				p.logger.decr(`cowoncy`, bet * -1, { type: 'coinflip' }, p.msg);
-				p.logger.decr(`gamble`, -1, { type: 'coinflip' }, p.msg);
+				p.logger.decr('cowoncy', bet * -1, { type: 'coinflip' }, p.msg);
+				p.logger.decr('gamble', -1, { type: 'coinflip' }, p.msg);
 			}
 			let text =
 				'**' +
-				msg.author.username +
+				p.getName() +
 				'** spent **' +
 				cowoncy +
 				' ' +

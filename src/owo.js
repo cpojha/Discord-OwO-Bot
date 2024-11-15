@@ -62,17 +62,19 @@ class OwO extends Base {
 		this.mysqlhandler = require('./botHandlers/mysqlHandler.js');
 		this.query = this.mysqlhandler.query;
 
-		try {
-			this.animals = require('./../../tokens/owo-animals.json');
-		} catch (err) {
-			console.error('Could not find owo-animals.json, attempting to use ./secret file...');
-			this.animals = require('../secret/owo-animals.json');
-			console.log('Found owo-animals.json file in secret folder!');
-		}
+		this.cache = require('./utils/cacheUtil.js');
 
 		// Global helper methods
 		this.global = require('./utils/global.js');
 		this.global.init(this);
+
+		this.animalUtil = require('./utils/animalInfoUtil.js');
+		this.animalUtil.setBot(this);
+
+		this.rewardUtil = require('./utils/rewardUtil.js');
+
+		this.event = require('./utils/eventUtil.js');
+		this.event.init(this);
 
 		// Message sender helper methods
 		this.sender = require('./utils/sender.js');
@@ -111,6 +113,8 @@ class OwO extends Base {
 		this.patreon = require('./utils/patreon.js');
 		this.patreon.init(this);
 
+		this.patreonUtil = require('./commands/commandList/patreon/utils/patreonUtil.js');
+
 		try {
 			this.badwords = require('./../../tokens/badwords.json');
 		} catch (err) {
@@ -118,6 +122,9 @@ class OwO extends Base {
 			this.badwords = require('../secret/badwords.json');
 			console.log('Found badwords.json file in secret folder!');
 		}
+
+		this.giveaway = require('./utils/giveaway.js');
+		this.giveaway.checkGiveawayTimeout(this);
 
 		// Create commands
 		this.command = new (require('./commands/command.js'))(this);
@@ -129,6 +136,8 @@ class OwO extends Base {
 
 		// sends info to our main server every X seconds
 		this.InfoUpdater = new (require('./utils/InfoUpdater.js'))(this);
+
+		this.logger.logstashQos('launch');
 	}
 
 	async setOptOut() {

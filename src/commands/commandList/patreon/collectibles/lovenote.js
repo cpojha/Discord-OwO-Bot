@@ -47,8 +47,11 @@ class LoveNote extends Collectible {
 		return super.getDisplayMsg(p, args, msgOverride);
 	}
 
-	async give(p, user, dataOverride) {
+	async give(p, user, _dataOverride) {
 		if (p.msg.author.id === this.owners[0]) {
+			if (p.args[1] === 'p') {
+				return super.give(p, user, this.data2);
+			}
 			return super.give(p, user, this.data);
 		} else if (p.msg.author.id === this.owners[1]) {
 			return super.give(p, user, this.data2);
@@ -56,8 +59,14 @@ class LoveNote extends Collectible {
 		return super.give(p, user);
 	}
 
-	async getGiveMsg(p, result, user, msgOverride) {
+	async getGiveMsg(p, result, user, _msgOverride) {
 		if (p.msg.author.id === this.owners[0]) {
+			if (p.args[1] === 'p') {
+				const giveMsg =
+					'<:pink_letter:1056420948842135572> **| ?receiver?**, this **1** <:pink_letter:1056420948842135572> love note is for you **<3**' +
+					'\n<:pink_heart:1056420947789357086> **|** I cherish you <:pink_heart:1056420947789357086>';
+				return super.getGiveMsg(p, result, user, giveMsg);
+			}
 			return super.getGiveMsg(p, result, user, this.giveMsg);
 		} else if (p.msg.author.id === this.owners[1]) {
 			const giveMsg =
@@ -83,7 +92,7 @@ class LoveNote extends Collectible {
 			p.redis.hincrby(`data_${p.msg.author.id}`, this.data, this.mergeNeeded);
 			p.redis.hincrby(`data_${p.msg.author.id}`, this.data2, this.mergeNeeded);
 			p.send(
-				`<a:warning:1056420952054960168> **| Seems like you don’t have enough love notes :c**`,
+				'<a:warning:1056420952054960168> **| Seems like you don’t have enough love notes :c**',
 				3000
 			);
 			p.setCooldown(5);
@@ -97,7 +106,7 @@ class LoveNote extends Collectible {
 		}
 		const msg = this.mergeMsg
 			.replaceAll('?giveMsg?', selectedGiveMsg)
-			.replaceAll('?user?', p.msg.author.username)
+			.replaceAll('?user?', p.getName())
 			.replaceAll('?emoji?', this.emoji)
 			.replaceAll('?blank?', p.config.emoji.blank)
 			.replaceAll('?mergeCount?', result3)

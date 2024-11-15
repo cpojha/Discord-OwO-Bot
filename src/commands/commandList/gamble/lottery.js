@@ -7,7 +7,7 @@
 
 const CommandInterface = require('../../CommandInterface.js');
 
-const maxBet = 150000;
+const maxBet = 250000;
 
 module.exports = new CommandInterface({
 	alias: ['lottery', 'bet', 'lotto'],
@@ -90,16 +90,15 @@ async function bet(con, msg, args, global, p) {
 			';';
 		result = await p.query(sql);
 
-		p.logger.decr(`cowoncy`, -1 * amount, { type: 'lottery' }, p.msg);
+		p.logger.decr('cowoncy', -1 * amount, { type: 'lottery' }, p.msg);
 
 		let sum = parseInt(result[1][0].sum);
-		let count = result[1][0].count;
 		let bet = prevBet + amount;
 		let chance = (bet / sum) * 100;
 		if (chance >= 0.01) chance = Math.trunc(chance * 100) / 100;
 
 		let embed = {
-			description: 'Lottery ends once a day! The maximum lottery submission is 150K cowoncy!',
+			description: 'Lottery ends once a day! The maximum lottery submission is 250k cowoncy!',
 			color: p.config.embed_color,
 			timestamp: new Date(),
 			footer: {
@@ -108,7 +107,7 @@ async function bet(con, msg, args, global, p) {
 				text: '*Percentage and jackpot may change over time',
 			},
 			author: {
-				name: msg.author.username + "'s Lottery Submission",
+				name: p.getName() + "'s Lottery Submission",
 			},
 			fields: [
 				{
@@ -176,7 +175,7 @@ async function display(con, msg, p) {
 			text: '*Percentage and jackpot may change over time',
 		},
 		author: {
-			name: msg.author.username + "'s Lottery Status",
+			name: p.getName() + "'s Lottery Status",
 		},
 		fields: [
 			{

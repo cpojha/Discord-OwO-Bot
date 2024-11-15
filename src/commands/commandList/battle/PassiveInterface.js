@@ -4,26 +4,34 @@
  * This software is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
  * For more information, see README.md and LICENSE
  */
+/* eslint-disable no-unused-vars */
+const WeaponInterface = require('./WeaponInterface.js');
 
 const ranks = [0.2, 0.2, 0.2, 0.2, 0.14, 0.05, 0.01];
 module.exports = class PassiveInterface {
-	constructor(qualities, noCreate) {
+	constructor(qualities, noCreate, opt = {}) {
 		this.init();
 		if (noCreate) return;
 
-		if (!qualities) qualities = this.randomQualities();
+		/* Overrides */
+		const statOverride = opt.statOverride;
+		/* Good wear values give bonuses */
+		this.wear = WeaponInterface.getWear(opt.wear);
+
+		if (!qualities) qualities = this.randomQualities(statOverride);
 
 		let avgQuality = qualities.reduce((a, b) => a + b, 0) / qualities.length;
+		avgQuality += this.wearBuff;
 		let emoji = this.getEmoji(avgQuality);
 		let stats = this.toStats(qualities);
 
 		/* Construct desc */
 		let desc = this.statDesc;
-		for (var i = 0; i < stats.length; i++) {
+		for (let i = 0; i < stats.length; i++) {
 			desc = desc.replace('?', stats[i]);
 		}
 		/* Check if it has enough emojis */
-		if (this.emojis.length != 7) throw new Error(`[${args.id}] does not have 7 emojis`);
+		if (this.emojis.length != 7) throw new Error(`[${this.id}] does not have 7 emojis`);
 
 		this.avgQuality = avgQuality;
 		this.qualities = qualities;
@@ -33,10 +41,10 @@ module.exports = class PassiveInterface {
 		this.sqlStat = qualities.join(',');
 	}
 
-	randomQualities() {
-		var qualities = [];
-		for (var i = 0; i < this.qualityList.length; i++)
-			qualities.push(Math.trunc(Math.random() * 101));
+	randomQualities(statOverride) {
+		let qualities = [];
+		for (let i = 0; i < this.qualityList.length; i++)
+			qualities.push(statOverride || Math.trunc(Math.random() * 101));
 		return qualities;
 	}
 
@@ -50,22 +58,23 @@ module.exports = class PassiveInterface {
 		quality /= 100;
 
 		/* Get correct rank */
-		var count = 0;
-		for (var i = 0; i < ranks.length; i++) {
+		let count = 0;
+		for (let i = 0; i < ranks.length; i++) {
 			count += ranks[i];
 			if (quality <= count) return this.emojis[i];
 		}
-		return this.emojis[0];
+		return this.emojis[6];
 	}
 
 	toStats(qualities) {
 		if (qualities.length != this.qualityList.length)
 			throw new Error('Array size does not match in toStats. Passive id:' + this.id);
-		var stats = [];
-		for (var i = 0; i < qualities.length; i++) {
+		let stats = [];
+		for (let i = 0; i < qualities.length; i++) {
 			let quality = qualities[i];
 			if (quality > 100) quality = 100;
 			if (quality < 0) quality = 0;
+			quality += this.wearBuff;
 			let min = this.qualityList[i][0];
 			let max = this.qualityList[i][1];
 
@@ -73,6 +82,34 @@ module.exports = class PassiveInterface {
 			stats.push(Math.round((min + (max - min) * (quality / 100)) * 100) / 100);
 		}
 		return stats;
+	}
+
+	/**
+	 * Sets the wear of the passives
+	 * Alters passive's avgQualit, emoji, stats, and desc
+	 */
+	setWear(wear) {
+		this.wear = WeaponInterface.getWear(wear);
+
+		let avgQuality = this.qualities.reduce((a, b) => a + b, 0) / this.qualities.length;
+		avgQuality += this.wearBuff;
+		let emoji = this.getEmoji(avgQuality);
+		let stats = this.toStats(this.qualities);
+
+		/* Construct desc */
+		let desc = this.statDesc;
+		for (let i = 0; i < stats.length; i++) {
+			desc = desc.replace('?', stats[i]);
+		}
+
+		this.avgQuality = avgQuality;
+		this.emoji = emoji;
+		this.stats = stats;
+		this.desc = desc;
+	}
+
+	get wearBuff() {
+		return this.wear?.buff || 0;
 	}
 
 	alterStats(stats) {}

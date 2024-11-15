@@ -32,9 +32,9 @@ module.exports = new CommandInterface({
 		);
 
 		if (user && !user.dmError) {
-			p.send(`📨 **|** Sent a warning to **${user.username}#${user.discriminator}**`);
+			p.send(`📨 **|** Sent a warning to **${p.getUniqueName(user)}**`);
 		} else {
-			p.send(`⚠ **|** Failed to send a warning for that user`);
+			p.send('⚠ **|** Failed to send a warning for that user');
 		}
 	},
 });

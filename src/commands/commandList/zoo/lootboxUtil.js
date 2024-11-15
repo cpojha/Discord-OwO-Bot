@@ -5,7 +5,6 @@
  * For more information, see README.md and LICENSE
  */
 
-const global = require('../../../utils/global.js');
 const box = '<:box:427352600476647425>';
 const fbox = '<a:flootbox:725570544065445919>';
 const tempGem = require('../../../data/gems.json');
@@ -18,17 +17,25 @@ const ranks = {
 	l: 'Legendary',
 	f: 'Fabled',
 };
-var gems = {};
-for (var key in tempGem.gems) {
-	var temp = tempGem.gems[key];
+const gems = {};
+const idToGems = {};
+for (let key in tempGem.gems) {
+	let temp = tempGem.gems[key];
 	temp.key = key;
 	if (!gems[temp.type]) gems[temp.type] = [];
 	let rank = ranks[key[0]];
 	if (!rank) throw 'Missing rank type for gems';
 	temp.rank = rank;
 	gems[temp.type].push(temp);
+	idToGems[temp.id] = temp;
 }
-var typeCount = Object.keys(gems).length;
+const availableGems = {};
+for (let key in gems) {
+	if (!['Special', 'Patreon'].includes(key)) {
+		availableGems[key] = gems[key];
+	}
+}
+const availableTypeCount = Object.keys(availableGems).length;
 
 exports.getItems = async function (p) {
 	let sql = `SELECT boxcount,fbox FROM lootbox WHERE id = ${p.msg.author.id};`;
@@ -48,26 +55,13 @@ exports.getItems = async function (p) {
 	return items;
 };
 
-function getRandomGem({ tier } = {}) {
-	let rand = Math.trunc(Math.random() * (typeCount - 1));
-	let count = 0;
-	let type = 'Hunting';
-
-	for (let key in gems) {
-		// Disable patreon gems
-		if (key == 'Patreon') {
-			count++;
-			rand++;
-		} else if (count == rand) {
-			type = key;
-			count++;
-		} else {
-			count++;
-		}
+function getRandomGem({ tier, gid } = {}) {
+	if (idToGems[gid]) {
+		return idToGems[gid];
 	}
 
-	if (global.isInt(type)) type = Object.keys(gems)[0];
-	type = gems[type];
+	let rand = Math.trunc(Math.random() * availableTypeCount);
+	const type = Object.values(availableGems)[rand];
 
 	let gem;
 	if (!tier) {
@@ -83,7 +77,6 @@ function getRandomGem({ tier } = {}) {
 	} else {
 		gem = type[tier];
 	}
-	let rank = ranks[gem.key[0]];
 	return gem;
 }
 
@@ -95,7 +88,7 @@ const getRandomGems = (exports.getRandomGems = function (uid, count = 1, opts) {
 		else gemResult[tempGem.id].count++;
 	}
 
-	let sql = `INSERT INTO user_gem (uid,gname,gcount) VALUES `;
+	let sql = 'INSERT INTO user_gem (uid,gname,gcount) VALUES ';
 	for (let i in gemResult) {
 		sql += `(${uid},'${gemResult[i].gem.key}',${gemResult[i].count}),`;
 	}

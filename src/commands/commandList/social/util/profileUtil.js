@@ -19,8 +19,8 @@ var display = (exports.display = async function (p, user) {
 
 	/* Returns a promise to avoid callback hell */
 	try {
-		return new Promise((resolve, reject) => {
-			let req = request(
+		return new Promise((resolve, _reject) => {
+			request(
 				{
 					method: 'POST',
 					uri: `${process.env.GEN_API_HOST}/profilegen`,
@@ -88,8 +88,7 @@ async function generateJson(p, user) {
 		},
 		user: {
 			avatarURL,
-			name: user.username,
-			discriminator: user.discriminator,
+			name: p.getName(user),
 			title,
 		},
 		aboutme,
@@ -120,25 +119,27 @@ async function getCookie(p, user) {
 }
 
 async function getMarriage(p, user) {
-	let sql = `SELECT 
-			u1.id AS id1,u2.id AS id2,TIMESTAMPDIFF(DAY,marriedDate,NOW()) as days,marriage.* 
+	const uid = await p.global.getUid(user.id);
+	let sql = `SELECT
+			TIMESTAMPDIFF(DAY, marriedDate, NOW()) as days,
+			marriage.* 
 		FROM marriage 
-			LEFT JOIN user AS u1 ON marriage.uid1 = u1.uid 
-			LEFT JOIN user AS u2 ON marriage.uid2 = u2.uid 
-		WHERE u1.id = ${user.id} OR u2.id = ${user.id};`;
+		WHERE uid1 = ${uid} OR uid2 = ${uid};`;
 	let result = await p.query(sql);
 
 	if (result.length < 1) return;
 
 	// Grab user and ring information
 	let ring = rings[result[0].rid];
-	let so = user.id == result[0].id1 ? result[0].id2 : result[0].id1;
+	let so = uid == result[0].uid1 ? result[0].uid2 : result[0].uid1;
+	sql = `SELECT id FROM user WHERE uid = ${so}`;
+	const result2 = await p.query(sql);
+	so = result2[0].id;
 	so = await p.fetch.getUser(so);
-	tag = '';
+	let tag = '';
 	if (!so) so = 'Someone';
 	else {
-		tag = '#' + so.discriminator;
-		so = so.username;
+		so = p.getName(so);
 	}
 	return { img: 'ring_' + ring.id + '.png', text: so, tag };
 }
@@ -221,7 +222,6 @@ var displayProfile = (exports.displayProfile = async function (p, user) {
 		let url = `${process.env.GEN_HOST}/profile/${uuid}.png`;
 		let data = await p.DataResolver.urlToBuffer(url);
 		if (uuid) {
-			let warning = '⚠';
 			await p.send('', null, { file: data, name: 'profile.png' });
 		} else throw 'Not found';
 	} catch (e) {
@@ -265,7 +265,7 @@ exports.editAbout = async function (p) {
 		return;
 	}
 
-	let uid = await getUid(p, p.msg.author.id);
+	let uid = await getUid(p);
 
 	if (!uid) {
 		p.errorMsg(', failed to change settings', 3000);
@@ -285,7 +285,7 @@ exports.editTitle = async function (p) {
 		return;
 	}
 
-	let uid = await getUid(p, p.msg.author.id);
+	let uid = await getUid(p);
 
 	if (!uid) {
 		p.errorMsg(', failed to change settings', 3000);
@@ -320,7 +320,7 @@ exports.editAccent = async function (p) {
 		return;
 	}
 
-	let uid = await getUid(p, p.msg.author.id);
+	let uid = await getUid(p);
 	if (!uid) {
 		p.errorMsg(', failed to change settings', 3000);
 		return;
@@ -351,7 +351,7 @@ exports.editAccent2 = async function (p) {
 		return;
 	}
 
-	let uid = await getUid(p, p.msg.author.id);
+	let uid = await getUid(p);
 	if (!uid) {
 		p.errorMsg(', failed to change settings', 3000);
 		return;
@@ -362,7 +362,7 @@ exports.editAccent2 = async function (p) {
 };
 
 exports.setPublic = async function (p) {
-	let uid = await getUid(p, p.msg.author.id);
+	let uid = await getUid(p);
 	if (!uid) {
 		p.errorMsg(', failed to change settings', 3000);
 		return;
@@ -374,7 +374,7 @@ exports.setPublic = async function (p) {
 };
 
 exports.setPrivate = async function (p) {
-	let uid = await getUid(p, p.msg.author.id);
+	let uid = await getUid(p);
 	if (!uid) {
 		p.errorMsg(', failed to change settings', 3000);
 		return;
@@ -385,7 +385,7 @@ exports.setPrivate = async function (p) {
 	p.replyMsg(settingEmoji, ', Your profile can **not** be seen by anyone!');
 };
 
-async function getUid(p, id) {
+async function getUid(p) {
 	let sql = `SELECT uid FROM user WHERE id = ${p.msg.author.id};`;
 	let result = await p.query(sql);
 	let uid;

@@ -9,7 +9,7 @@ const CommandInterface = require('../../CommandInterface.js');
 
 const fs = require('fs');
 const request = require('request').defaults({ encoding: null });
-const { createCanvas, Canvas, Image } = require('canvas');
+const { Canvas, Image } = require('canvas');
 
 module.exports = new CommandInterface({
 	alias: ['isthisa'],
@@ -60,18 +60,18 @@ module.exports = new CommandInterface({
 				console.error(err);
 				return;
 			}
-			img = new Image();
+			let img = new Image();
 			img.src = image;
-			canvas = new Canvas(img.width, img.height);
+			let canvas = new Canvas(img.width, img.height);
 			canvas.backgroundColor = 'white';
-			ctx = canvas.getContext('2d');
+			let ctx = canvas.getContext('2d');
 			ctx.drawImage(img, 0, 0, img.width, img.height);
 
 			if (!addBottomText(p, args[0], ctx, canvas)) return;
 			addButterflyText(p, args[1], ctx, canvas, function () {
 				addPersonText(p, args[2], ctx, canvas, function () {
-					buf = canvas.toBuffer();
-					p.send('**🖼 | ' + p.msg.author.username + '** generated a meme!', null, {
+					let buf = canvas.toBuffer();
+					p.send('**🖼 | ' + p.getName() + '** generated a meme!', null, {
 						file: buf,
 						name: 'meme.png',
 					});
@@ -89,7 +89,7 @@ function addBottomText(p, text, ctx, canvas) {
 	ctx.font = '40px Impact';
 	if (ctx.measureText(text).width > 730) ctx.font = '30px Impact';
 	if (ctx.measureText(text).width > 730) {
-		p.send('**🚫 | ' + p.msg.author.username + '**, The bottom text is too long!', 3000);
+		p.send('**🚫 | ' + p.getName() + '**, The bottom text is too long!', 3000);
 		return false;
 	}
 
@@ -104,28 +104,28 @@ async function addButterflyText(p, text, ctx, canvas, callback) {
 	}
 	ctx.textAlign = 'center';
 	if (p.global.isUser(text)) {
-		var url = await p.fetch.getUser(text);
+		let url = await p.fetch.getUser(text);
 		if (!url) {
-			p.send('**🚫 | ' + p.msg.author.username + '**, I could not find that user', 3000);
+			p.send('**🚫 | ' + p.getName() + '**, I could not find that user', 3000);
 			return;
 		}
 		ctx.font = '20px Impact';
 		writeText(582, 210, ctx, url.username, 3);
 		url = url.avatarURL;
 		if (!url) {
-			p.send('**🚫 | ' + p.msg.author.username + '**, I could not find that user', 3000);
+			p.send('**🚫 | ' + p.getName() + '**, I could not find that user', 3000);
 			return;
 		}
 		try {
 			await request.get(url, callbackImage(p, ctx, 537, 75, 90, callback));
 		} catch (err) {
 			console.error(err);
-			p.send('**🚫 | ' + p.msg.author.username + '**, could not grab the image', 3000);
+			p.send('**🚫 | ' + p.getName() + '**, could not grab the image', 3000);
 		}
 	} else if (/^\s*<a?:[a-zA-Z0-9]+:[0-9]+>\s*$/gi.test(text)) {
-		var url = text.match(/:[0-9]+>/gi);
+		let url = text.match(/:[0-9]+>/gi);
 		if (!url || !url[0]) {
-			p.send('**🚫 | ' + p.msg.author.username + '**, I could not grab the emoji', 3000);
+			p.send('**🚫 | ' + p.getName() + '**, I could not grab the emoji', 3000);
 			return;
 		}
 		url = 'https://cdn.discordapp.com/emojis/' + url[0].slice(1, url[0].length - 1) + '.png';
@@ -133,21 +133,21 @@ async function addButterflyText(p, text, ctx, canvas, callback) {
 			await request.get(url, callbackImage(p, ctx, 537, 75, 90, callback));
 		} catch (err) {
 			console.error(err);
-			p.send('**🚫 | ' + p.msg.author.username + '**, could not grab the image', 3000);
+			p.send('**🚫 | ' + p.getName() + '**, could not grab the image', 3000);
 		}
 	} else {
 		text = text.replace(/<a?:/gi, '');
 		text = text.replace(/:[0-9]+>/gi, '');
 		ctx.font = '30px Impact';
 		if (ctx.measureText(text).width > 300) ctx.font = '15px Impact';
-		var tempText = text.split(' ');
+		let tempText = text.split(' ');
 		text = '';
-		for (var i = 0; i < tempText.length; i++) {
+		for (let i = 0; i < tempText.length; i++) {
 			if (ctx.measureText(text + tempText[i] + ' ').width > 300 && i > 0) text += '\n';
 			text += tempText[i] + ' ';
 		}
 		if (ctx.measureText(text).width > 300 || text.split(/\r\n|\r|\n/).length > 3) {
-			p.send('**🚫 | ' + p.msg.author.username + '**, The butterfly text is too long!', 3000);
+			p.send('**🚫 | ' + p.getName() + '**, The butterfly text is too long!', 3000);
 			return;
 		}
 
@@ -163,28 +163,28 @@ async function addPersonText(p, text, ctx, canvas, callback) {
 	}
 	ctx.textAlign = 'center';
 	if (p.global.isUser(text)) {
-		var url = await p.fetch.getUser(text);
+		let url = await p.fetch.getUser(text);
 		if (!url) {
-			p.send('**🚫 | ' + p.msg.author.username + '**, I could not find that user', 3000);
+			p.send('**🚫 | ' + p.getName() + '**, I could not find that user', 3000);
 			return;
 		}
 		ctx.font = '20px Impact';
 		writeText(270, 350, ctx, url.username, 3);
 		url = url.avatarURL;
 		if (!url) {
-			p.send('**🚫 | ' + p.msg.author.username + '**, I could not find that user', 3000);
+			p.send('**🚫 | ' + p.getName() + '**, I could not find that user', 3000);
 			return;
 		}
 		try {
 			await request.get(url, callbackImage(p, ctx, 195, 170, 150, callback));
 		} catch (err) {
 			console.error(err);
-			p.send('**🚫 | ' + p.msg.author.username + '**, could not grab the image', 3000);
+			p.send('**🚫 | ' + p.getName() + '**, could not grab the image', 3000);
 		}
 	} else if (/^\s*<a?:[a-zA-Z0-9]+:[0-9]+>\s*$/gi.test(text)) {
-		var url = text.match(/:[0-9]+>/gi);
+		let url = text.match(/:[0-9]+>/gi);
 		if (!url || !url[0]) {
-			p.send('**🚫 | ' + p.msg.author.username + '**, I could not grab the emoji', 3000);
+			p.send('**🚫 | ' + p.getName() + '**, I could not grab the emoji', 3000);
 			return;
 		}
 		url = 'https://cdn.discordapp.com/emojis/' + url[0].slice(1, url[0].length - 1) + '.png';
@@ -192,21 +192,21 @@ async function addPersonText(p, text, ctx, canvas, callback) {
 			await request.get(url, callbackImage(p, ctx, 195, 170, 150, callback));
 		} catch (err) {
 			console.error(err);
-			p.send('**🚫 | ' + p.msg.author.username + '**, could not grab the image', 3000);
+			p.send('**🚫 | ' + p.getName() + '**, could not grab the image', 3000);
 		}
 	} else {
 		text = text.replace(/<a?:/gi, '');
 		text = text.replace(/:[0-9]+>/gi, '');
 		ctx.font = '30px Impact';
 		if (ctx.measureText(text).width > 300) ctx.font = '15px Impact';
-		var tempText = text.split(' ');
+		let tempText = text.split(' ');
 		text = '';
-		for (var i = 0; i < tempText.length; i++) {
+		for (let i = 0; i < tempText.length; i++) {
 			if (ctx.measureText(text + tempText[i]).width > 300 && i > 0) text += '\n';
 			text += tempText[i] + ' ';
 		}
 		if (ctx.measureText(text).width > 300) {
-			p.send('**🚫 | ' + p.msg.author.username + '**, The person text is too long!', 3000);
+			p.send('**🚫 | ' + p.getName() + '**, The person text is too long!', 3000);
 			return;
 		}
 
@@ -218,16 +218,16 @@ async function addPersonText(p, text, ctx, canvas, callback) {
 function callbackImage(p, ctx, x, y, size, callback) {
 	return function (err, response, body) {
 		if (!err && response.statusCode == 200) {
-			img = new Image();
+			let img = new Image();
 			img.onload = function () {
 				ctx.drawImage(img, x, y, size, size);
 				callback();
 			};
 			img.onerror = function () {
-				p.send('**🚫 | ' + p.msg.author.username + '**, I could not grab the image', 3000);
+				p.send('**🚫 | ' + p.getName() + '**, I could not grab the image', 3000);
 			};
 			img.src = body;
-		} else p.send('**🚫 | ' + p.msg.author.username + '**, I could not grab the image', 3000);
+		} else p.send('**🚫 | ' + p.getName() + '**, I could not grab the image', 3000);
 	};
 }
 
